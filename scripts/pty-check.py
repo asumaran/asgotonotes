@@ -10,7 +10,7 @@ the real index and never opens an editor.
 
 Usage: scripts/pty-check.py ./gotonotes [dark|light]   (needs python3 + pyte)
 """
-import fcntl, os, pty, select, shutil, struct, subprocess, sys, tempfile, termios, time
+import atexit, fcntl, os, pty, select, shutil, struct, subprocess, sys, tempfile, termios, time
 import pyte
 
 BIN = os.path.abspath(sys.argv[1])
@@ -98,6 +98,8 @@ class Session:
         self.proc = subprocess.Popen([BIN], stdin=slave, stdout=slave, stderr=slave, env=env,
                                      close_fds=True, cwd=SANDBOX)
         os.close(slave)
+        # A failed assertion must not leave the binary running on a dead pty.
+        atexit.register(lambda p=self.proc: p.poll() is None and p.kill())
         self.screen = pyte.Screen(COLS, ROWS)
         self.stream = pyte.ByteStream(self.screen)
         self.raw = bytearray()
