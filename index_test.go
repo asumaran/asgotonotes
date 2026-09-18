@@ -174,30 +174,46 @@ func TestIsNote(t *testing.T) {
 		{"/wt/doc.markdown", statusUntracked, true},
 		{"/tmp/old-draft.md", statusGone, true},
 		{"/Users/dev/.claude/plans/no-extension", statusPlan, true},
+		// Claude's memory files are never notes, whatever their status
+		{"/Users/dev/.claude/projects/-Users-dev-wt-shop/memory/MEMORY.md", statusOutside, false},
+		{"/Users/dev/.claude/projects/-Users-dev-wt-shop/memory/feedback_x.md", statusGone, false},
+		{"/Users/dev/.claude/projects/-Users-dev-wt-shop/memory/sub/deep.txt", statusOutside, false},
+		// but only under <project>/memory/
+		{"/Users/dev/.claude/projects/-Users-dev-wt-shop/notes.md", statusOutside, true},
+		{"/Users/dev/.claude/projects/memory/notes.md", statusOutside, true},
+		{"/Users/dev/.claude/harness/memory/brief.md", statusOutside, true},
+		{"/wt/memory/PLAN.md", statusUntracked, true},
 	}
 	for _, c := range cases {
-		if got := isNote(c.path, c.status); got != c.want {
+		if got := isNote(c.path, c.status, testHome); got != c.want {
 			t.Errorf("isNote(%q, %q) = %v, want %v", c.path, c.status, got, c.want)
 		}
 	}
 }
 
 func TestVisibleGroupsAndCounts(t *testing.T) {
+	t.Setenv("HOME", testHome)
+	memory := testHome + "/.claude/projects/-Users-dev-b/memory/MEMORY.md"
 	g1 := &group{root: "/a", files: []noteFile{
 		{path: "/a/PLAN.md", status: statusUntracked},
 		{path: "/a/main.go", status: statusTracked},
+		{path: memory, status: statusOutside},
 	}}
-	g2 := &group{root: "/b", files: []noteFile{{path: "/b/main.go", status: statusTracked}}}
+	g2 := &group{root: "/b", files: []noteFile{
+		{path: "/b/main.go", status: statusTracked},
+		{path: memory, status: statusOutside},
+	}}
 	groups := []*group{g1, g2}
 
 	if got := visibleGroups(groups, false); len(got) != 1 || got[0] != g1 {
-		t.Errorf("notes mode must hide groups without notes, got %d groups", len(got))
+		t.Errorf("notes mode must hide groups with only code and memory files, got %d groups", len(got))
 	}
 	if got := visibleGroups(groups, true); len(got) != 2 {
 		t.Errorf("all-files mode shows every group, got %d", len(got))
 	}
-	if g1.count(false) != 1 || g1.count(true) != 2 {
-		t.Errorf("counts = %d notes / %d files, want 1 / 2", g1.count(false), g1.count(true))
+	if g1.count(false) != 1 || g1.count(true) != 3 {
+		t.Errorf("counts = %d notes / %d files, want 1 / 3 (memory files are files, not notes)",
+			g1.count(false), g1.count(true))
 	}
 	if files := g1.visibleFiles(false); len(files) != 1 || files[0].path != "/a/PLAN.md" {
 		t.Errorf("visibleFiles(notes) = %+v", files)

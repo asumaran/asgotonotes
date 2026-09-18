@@ -25,7 +25,8 @@ legacy = os.path.join(home, "wt", "fed-2283-tables")
 tool = os.path.join(home, "Developer", "tool")
 plans = os.path.join(home, ".claude", "plans")
 harness = os.path.join(home, ".claude", "harness", "eshop-551")
-for d in (wt, legacy, tool, plans, harness, os.path.join(wt, "src", "pages")):
+memdir = os.path.join(home, ".claude", "projects", "-home-wt-shop", "memory")
+for d in (wt, legacy, tool, plans, harness, memdir, os.path.join(wt, "src", "pages")):
     os.makedirs(d)
 
 def write(path, text):
@@ -48,6 +49,7 @@ newcode = write(os.path.join(wt, "src", "new.ts"), "export {}\n")
 plan = write(os.path.join(plans, "eshop-551-koala.md"), "# Koala plan\n")
 script = write(os.path.join(harness, "script.py"), "print('hi')\n")
 gone = os.path.join(harness, "brief-2385.md")
+memory = write(os.path.join(memdir, "MEMORY.md"), "# Memory index\n")
 draft = write(os.path.join(SANDBOX, "draft.md"), "# Draft\n")
 tool_code = write(os.path.join(tool, "main.go"), "package main\n")
 git(tool, "init", "-q", "-b", "main")
@@ -65,6 +67,8 @@ lines = [
     (now - 360, wt, "shop", "fix/ESHOP-551-structured-data", readme),
     (now - 420, wt, "shop", "fix/ESHOP-551-structured-data", page),
     (now - 480, wt, "shop", "fix/ESHOP-551-structured-data", newcode),
+    (now - 540, wt, "shop", "fix/ESHOP-551-structured-data", memory),
+    (now - 86400, tool, "tool", "main", memory),
     (now - 3 * 86400, legacy, "", "", draft),
     (now - 30 * 86400, tool, "tool", "main", tool_code),
 ]
@@ -169,7 +173,7 @@ f = s.start(); dump("view 1, notes", f)
 check(f[0].strip() == "gotonotes (dev) ❯", "prompt line is clean: %r" % f[0])
 check(b"\x1b[?1049h" in s.raw, "program entered the alt screen")
 rows = [l for l in left(f) if l.strip()]
-check(len(rows) == 2, "notes mode lists 2 groups (tool/main has no notes): %d" % len(rows))
+check(len(rows) == 2, "notes mode lists 2 groups (tool/main has only code and a memory file): %d" % len(rows))
 check(rows[0].startswith("▌ ESHOP-551") and "shop" in rows[0] and "5 notes" in rows[0] and rows[0].endswith("1m"),
       "newest group first with label, repo, count and age: %r" % rows[0])
 check("FED-2283" in rows[1] and " - " in rows[1] and "1 note " in rows[1] and rows[1].endswith("3d"),
@@ -177,11 +181,13 @@ check("FED-2283" in rows[1] and " - " in rows[1] and "1 note " in rows[1] and ro
 pv = "\n".join(right(f))
 check("HANDOFF.md" in pv and "plan" in pv and "gone" in pv and "README.md" not in pv and "new.ts" not in pv,
       "view 1 preview lists the group's notes only")
+check("MEMORY.md" not in pv, "memory files are not notes")
 
 f = s.send(CTRL_A); dump("view 1, all files", f)
 rows = [l for l in left(f) if l.strip()]
-check(len(rows) == 3 and "8 files" in rows[0] and "tool/main" in rows[2] and "1 file " in rows[2],
-      "ctrl+a lists every group, counts worded as files")
+check(len(rows) == 3 and "9 files" in rows[0] and "tool/main" in rows[1] and "2 files" in rows[1],
+      "ctrl+a lists every group (tool/main only has code and a memory file), counts worded as files")
+check("MEMORY.md" in "\n".join(right(f)), "memory files stay visible in all-files mode")
 f = s.send(CTRL_A)
 
 f = s.send(b"fed-2"); dump("view 1, query 'fed-2'", f)
@@ -206,7 +212,8 @@ check("Handoff" in pv and "**bold**" not in pv and "bold handoff text" in pv, "m
 
 f = s.send(CTRL_A, 0.8); dump("view 2, all files", f)
 rows = [l for l in left(f, 2) if l.strip()]
-check(len(rows) == 8 and "8 files" in f[0], "ctrl+a lists all 8 files")
+check(len(rows) == 9 and "9 files" in f[0], "ctrl+a lists all 9 files")
+check(any(l.endswith("memory/MEMORY.md") for l in rows), "the memory file is listed in all-files mode")
 tracked = [l for l in rows if l.split()[0] == "tracked"]
 check(len(tracked) == 2 and any("[id].tsx" in l for l in tracked),
       "git lookup marks tracked files, literal pathspec for [id].tsx: %r" % tracked)

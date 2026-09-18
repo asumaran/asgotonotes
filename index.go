@@ -211,12 +211,24 @@ func fileStatus(root, path, home string, exists bool, tracked map[string]bool, r
 	return statusOutside
 }
 
+// isMemoryFile reports whether path is one of Claude's own memory files:
+// anything under ~/.claude/projects/<project>/memory/.
+func isMemoryFile(path, home string) bool {
+	projects := filepath.Join(home, ".claude", "projects")
+	if !insideRoot(projects, path) {
+		return false
+	}
+	parts := strings.Split(strings.TrimPrefix(path, projects+"/"), "/")
+	return len(parts) >= 3 && parts[1] == "memory"
+}
+
 // isNote is the default filter. Everything Claude wrote is indexed, but the
 // repo's own files are noise here: a note is not tracked by git and is
 // either .md/.markdown/.txt or lives outside the worktree (plans, harness
-// dirs, /tmp drafts). Untracked code and deleted specs stay out.
-func isNote(path, status string) bool {
-	if status == statusTracked {
+// dirs, /tmp drafts). Untracked code and deleted specs stay out, and so do
+// Claude's memory files: they match the shape but are not ticket notes.
+func isNote(path, status, home string) bool {
+	if status == statusTracked || isMemoryFile(path, home) {
 		return false
 	}
 	switch strings.ToLower(filepath.Ext(path)) {
@@ -232,9 +244,10 @@ func (g *group) visibleFiles(all bool) []noteFile {
 	if all {
 		return g.files
 	}
+	home := homeDir()
 	var out []noteFile
 	for _, f := range g.files {
-		if isNote(f.path, f.status) {
+		if isNote(f.path, f.status, home) {
 			out = append(out, f)
 		}
 	}
@@ -246,9 +259,9 @@ func (g *group) count(all bool) int {
 	if all {
 		return len(g.files)
 	}
-	n := 0
+	home, n := homeDir(), 0
 	for _, f := range g.files {
-		if isNote(f.path, f.status) {
+		if isNote(f.path, f.status, home) {
 			n++
 		}
 	}
