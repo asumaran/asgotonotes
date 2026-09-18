@@ -117,7 +117,9 @@ Keybinding (user config): `prefix+i` / `ctrl+alt+i` → `plugin_action`
   the popup may run with a shorter PATH; `GOTONOTES_OPENER` replaces it.
 - **Preview**: view 1 is synchronous (the group's file rows). View 2 reads at
   most 512 KB / 200 lines off the update loop, caches per (path, width,
-  mtime, style), shows `(binary file)` on NUL bytes.
+  mtime, style), shows `(binary file)` on NUL bytes. A leading YAML
+  frontmatter block (memory files, plans) is shown dimmed as plain text,
+  because glamour renders it as a rule plus a heading.
 - **Never query the terminal behind bubbletea's back**: `Init` issues
   `tea.RequestBackgroundColor()` and the `tea.BackgroundColorMsg` reply picks
   the glamour style ("dark"/"light"). Frames before the reply use "dark";

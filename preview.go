@@ -67,9 +67,19 @@ func renderFile(path string, width int, style string) string {
 	}
 	var out string
 	if isMarkdown(path) {
-		rendered, err := renderMarkdown(text, width, style)
+		front, body := splitFrontmatter(text)
+		rendered, err := renderMarkdown(body, width, style)
 		if err != nil {
-			rendered = plainText(text, width) // raw markdown beats nothing
+			rendered = plainText(body, width) // raw markdown beats nothing
+		}
+		if front != "" {
+			// Styled line by line: lipgloss pads a multi-line block to its
+			// widest line.
+			lines := strings.Split(plainText(front, width), "\n")
+			for i, l := range lines {
+				lines[i] = stDim.Render(l)
+			}
+			rendered = strings.Join(lines, "\n") + "\n" + rendered
 		}
 		out = rendered
 	} else {
@@ -106,6 +116,24 @@ func readHead(path string) (text string, truncated bool, err error) {
 	return capLines(string(bytes.ToValidUTF8(data, []byte("?"))), previewMaxLines, truncated)
 }
 
+// splitFrontmatter separates a leading YAML block (--- ... ---) from the
+// markdown body. Glamour would render it as a rule followed by a heading, so
+// it is shown as plain dimmed text instead. Memory files and plans carry one.
+func splitFrontmatter(text string) (front, body string) {
+	if !strings.HasPrefix(text, "---\n") {
+		return "", text
+	}
+	end := strings.Index(text[4:], "\n---")
+	if end < 0 {
+		return "", text
+	}
+	closing := 4 + end + len("\n---")
+	if closing < len(text) && text[closing] != '\n' {
+		return "", text
+	}
+	return text[:closing], strings.TrimLeft(text[closing:], "\n")
+}
+
 // capLines keeps the first n lines of text.
 func capLines(text string, n int, truncated bool) (string, bool, error) {
 	lines := strings.Split(strings.TrimRight(text, "\n"), "\n")
@@ -137,6 +165,9 @@ func plainText(text string, width int) string {
 // terminal, so the model asks it for the background color (Init →
 // RequestBackgroundColor) and passes the answer down.
 func renderMarkdown(body string, width int, style string) (string, error) {
+	if strings.TrimSpace(body) == "" {
+		return "", nil
+	}
 	r, err := glamour.NewTermRenderer(
 		glamour.WithStandardStyle(style),
 		glamour.WithWordWrap(width),

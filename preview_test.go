@@ -94,3 +94,24 @@ func TestPreviewKeyChangesWithMtimeAndWidth(t *testing.T) {
 		t.Error("a missing file keys with mtime 0")
 	}
 }
+
+func TestSplitFrontmatter(t *testing.T) {
+	front, body := splitFrontmatter("---\nname: x\ntype: project\n---\n\n# Title\n")
+	if front != "---\nname: x\ntype: project\n---" || body != "# Title\n" {
+		t.Errorf("front=%q body=%q", front, body)
+	}
+	for _, text := range []string{"# Title\n\n---\nrule\n", "---\nnever closed\n", "---\nname: x\n---trailing\n"} {
+		if front, body := splitFrontmatter(text); front != "" || body != text {
+			t.Errorf("%q is not frontmatter: front=%q", text, front)
+		}
+	}
+}
+
+func TestRenderFileKeepsFrontmatterPlain(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "memory.md")
+	os.WriteFile(p, []byte("---\nname: eshop-551\n---\n\n# Status\n"), 0o644)
+	got := ansi.Strip(renderFile(p, 60, "dark"))
+	if !strings.HasPrefix(got, "---\nname: eshop-551\n---\n") || !strings.Contains(got, "Status") {
+		t.Errorf("renderFile = %q", got)
+	}
+}
