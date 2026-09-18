@@ -81,7 +81,7 @@ time of the last write and the path:
 | `tracked` | inside the worktree and tracked by git |
 | `untracked` | inside the worktree, not tracked |
 | `gone` | no longer exists |
-| (empty) | outside the worktree: harness dirs, `/tmp`, memory files |
+| (empty) | outside the worktree: harness dirs, `/tmp` |
 
 The right side previews the file under the cursor: markdown is rendered, other
 files are shown as text, both capped at 200 lines. `enter` opens the file in a
@@ -103,8 +103,10 @@ is noise here. A file is a note when git does not track it and either its
 extension is `.md`, `.markdown` or `.txt`, or it lives outside the worktree.
 So `HANDOFF.md` and `PLAN.md` left untracked in a worktree are notes, as are
 `~/.claude/plans/*`, harness scripts and `/tmp` drafts. README edits, tracked
-code, untracked `.ts` files and deleted specs are not. Worktrees without notes
-are hidden until `ctrl+a` shows all files.
+code, untracked `.ts` files and deleted specs are not. Neither are Claude's
+own memory files (anything under `~/.claude/projects/<project>/memory/`): they
+look like notes but are not about a ticket. They are still listed with
+`ctrl+a`. Worktrees without notes are hidden until `ctrl+a` shows all files.
 
 ## Behavior notes
 

@@ -48,7 +48,8 @@ Files are split by concern:
 - `main.go` — flags (`-version`, `-dump`, `-all`, `-query`), `loadGroups`,
   `tea.NewProgram`, post-quit `runOpen`, `runDump`.
 - `index.go` — pure logic: `parseIndex`, `buildGroups` (dedup, newest first),
-  `groupLabel`, `fileStatus`, the note rule `isNote`, `visibleGroups`,
+  `groupLabel`, `fileStatus`, the note rule `isNote` / `isMemoryFile`,
+  `visibleGroups`,
   `compactAge`, `tildePath`.
 - `git.go` — `trackedFiles` (the one-call-per-group lookup), `parseLsFiles`,
   `resolveStatuses` (groups in parallel).
@@ -82,8 +83,11 @@ Keybinding (user config): `prefix+i` / `ctrl+alt+i` → `plugin_action`
 - **Status**, in this order: `gone` (does not exist), `plan` (under
   `~/.claude/plans/`), `tracked`, `untracked` (inside a root that is a git
   checkout), else empty (outside the worktree, or the root is not in git).
-- **Note rule** (default filter): not tracked AND (`.md`/`.markdown`/`.txt` OR
-  status empty/plan). `ctrl+a` toggles notes / all files and persists across
+- **Note rule** (default filter): not tracked AND not a memory file AND
+  (`.md`/`.markdown`/`.txt` OR status empty/plan). Memory files are anything
+  under `~/.claude/projects/<project>/memory/` (`isMemoryFile`): indexed and
+  listed in all-files mode, never counted as notes. Same rule as `_cf_is_note`
+  in the dotfiles zsh prototype. `ctrl+a` toggles notes / all files and persists across
   both views. Groups with zero notes are hidden in notes mode.
 - **Tracked lookup**: ONE `git --literal-pathspecs -C <root> ls-files -z --
   <files inside root>` per group, never a full `ls-files` of the tree (the
