@@ -1,3 +1,8 @@
+## v0.1.1 (2026-09-18)
+
+* docs: describe the memory file exclusion (3175c07)
+* fix(index): exclude memory files from the note rule (e61aa37)
+
 ## v0.1.0 (2026-09-18)
 
 * test: kill the binary when the pty driver aborts (7f9f76b)
