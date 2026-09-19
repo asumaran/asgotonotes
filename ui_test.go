@@ -8,6 +8,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -426,5 +427,27 @@ func TestMouseWheelFollowsThePointer(t *testing.T) {
 	wheel(m.listW()+10, tea.MouseWheelDown)
 	if m.cursor() != first || m.prevVP.YOffset() == 0 {
 		t.Errorf("wheel over the preview: cursor = %d, preview at %d", m.cursor(), m.prevVP.YOffset())
+	}
+}
+
+func TestMatchesStayMarkedOnTheSelectedRow(t *testing.T) {
+	if !stMatch.GetUnderline() || matchOver(stSel).GetBackground() != stSel.GetBackground() {
+		t.Errorf("a match is underlined, and keeps the background it sits on")
+	}
+	path := "~/wt/shop/PLAN.md" // byte 10 is the P
+	sel, plain := pathCells(path, 5, []int{10}, 30, true), pathCells(path, 5, []int{10}, 30, false)
+	if !strings.Contains(sel, matchOver(stSel).Render("P")) || !strings.Contains(sel, stSel.Render("LAN.md")) {
+		t.Errorf("selected = %q", sel)
+	}
+	if !strings.Contains(plain, matchOver(lipgloss.NewStyle()).Render("P")) || !strings.Contains(plain, stDim.Render("~/wt/")) {
+		t.Errorf("plain = %q", plain)
+	}
+	if ansi.Strip(sel) != path || ansi.Strip(plain) != path {
+		t.Errorf("highlighting must not change the text: %q / %q", ansi.Strip(sel), ansi.Strip(plain))
+	}
+	m, root := uiFixture(t)
+	f := noteFile{path: filepath.Join(root, "HANDOFF.md"), last: m.now, status: statusUntracked}
+	if w := ansi.StringWidth(m.fileLine(fileRow{f: f}, true, true, 50)); w != 50 {
+		t.Errorf("the selected row is %d cells wide, want the full 50", w)
 	}
 }
