@@ -1,3 +1,7 @@
+## v0.5.0 (2026-09-19)
+
+* feat: support linux and share the release process (d713ee3)
+
 ## v0.4.0 (2026-09-19)
 
 * refactor: rename gotonotes to asgotonotes (2de0d6b)
