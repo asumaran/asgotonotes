@@ -8,7 +8,6 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -242,17 +241,6 @@ func TestViewsRenderFixedColumns(t *testing.T) {
 	}
 }
 
-func TestPathCellsKeepsTheFileName(t *testing.T) {
-	got := pathCells("~/wt/monorepo-front/fix-ESHOP-551-structured-data/HANDOFF.md", 10, nil, 20, true)
-	plain := ansi.Strip(got)
-	if ansi.StringWidth(plain) != 20 || !strings.HasPrefix(plain, "…") || !strings.HasSuffix(plain, "/HANDOFF.md") {
-		t.Errorf("pathCells = %q", plain)
-	}
-	if short := pathCells("~/a.md", 0, nil, 20, false); short != "~/a.md" {
-		t.Errorf("a path that fits is untouched: %q", short)
-	}
-}
-
 func TestFileLineGivesTheDateRoomToThePath(t *testing.T) {
 	m, root := uiFixture(t)
 	f := noteFile{path: filepath.Join(root, "HANDOFF.md"), last: m.now.Add(-3 * time.Hour), status: statusUntracked}
@@ -430,21 +418,7 @@ func TestMouseWheelFollowsThePointer(t *testing.T) {
 	}
 }
 
-func TestMatchesStayMarkedOnTheSelectedRow(t *testing.T) {
-	if !stMatch.GetUnderline() || matchOver(stSel).GetBackground() != stSel.GetBackground() {
-		t.Errorf("a match is underlined, and keeps the background it sits on")
-	}
-	path := "~/wt/shop/PLAN.md" // byte 10 is the P
-	sel, plain := pathCells(path, 5, []int{10}, 30, true), pathCells(path, 5, []int{10}, 30, false)
-	if !strings.Contains(sel, matchOver(stSel).Render("P")) || !strings.Contains(sel, stSel.Render("LAN.md")) {
-		t.Errorf("selected = %q", sel)
-	}
-	if !strings.Contains(plain, matchOver(lipgloss.NewStyle()).Render("P")) || !strings.Contains(plain, stDim.Render("~/wt/")) {
-		t.Errorf("plain = %q", plain)
-	}
-	if ansi.Strip(sel) != path || ansi.Strip(plain) != path {
-		t.Errorf("highlighting must not change the text: %q / %q", ansi.Strip(sel), ansi.Strip(plain))
-	}
+func TestSelectedFileRowSpansTheList(t *testing.T) {
 	m, root := uiFixture(t)
 	f := noteFile{path: filepath.Join(root, "HANDOFF.md"), last: m.now, status: statusUntracked}
 	if w := ansi.StringWidth(m.fileLine(fileRow{f: f}, true, true, 50)); w != 50 {

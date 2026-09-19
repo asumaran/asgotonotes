@@ -52,9 +52,6 @@ func padLeft(s string, width int) string {
 var (
 	stPrompt = lipgloss.NewStyle().Foreground(lipgloss.Color("13")).Bold(true)
 	stDev    = lipgloss.NewStyle().Foreground(lipgloss.Color("208")).Bold(true)
-	stSel    = lipgloss.NewStyle().Background(lipgloss.Color("8")).Bold(true)
-	// a filter match: asgitlog's look, also over the selected row's background
-	stMatch  = lipgloss.NewStyle().Foreground(lipgloss.Color("13")).Underline(true)
 	stHeader = lipgloss.NewStyle().Foreground(lipgloss.Color("6")).Bold(true)
 	stDim    = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
 	stTitle  = lipgloss.NewStyle().Bold(true)
@@ -502,75 +499,6 @@ func (m *model) fileLine(r fileRow, selected, cursorCol bool, width int) string 
 	}
 	status := statusStyle(r.f.status).Render(padRight(r.f.status, statusW))
 	return truncate(gutter+status+" "+stDim.Render(date)+sep+pathCells(display, dim, r.idx, pathW, false), width)
-}
-
-// pathCells fits a path into width. A path that does not fit loses its
-// head, not its tail, so the file name is always visible. The first dim
-// bytes (the worktree root prefix) are dimmed, unless the row is selected and
-// everything takes its background; the matched bytes are highlighted over
-// either.
-func pathCells(path string, dim int, idx []int, width int, selected bool) string {
-	type cell struct {
-		r   rune
-		off int
-	}
-	cells := make([]cell, 0, len(path))
-	for off, r := range path {
-		cells = append(cells, cell{r, off})
-	}
-	cut := false
-	if len(cells) > width && width > 1 {
-		cells = cells[len(cells)-(width-1):]
-		cut = true
-	}
-	style := func(dimmed bool) lipgloss.Style {
-		switch {
-		case selected:
-			return stSel
-		case dimmed:
-			return stDim
-		}
-		return lipgloss.NewStyle()
-	}
-	matched := make(map[int]bool, len(idx))
-	for _, i := range idx {
-		matched[i] = true
-	}
-	var b, run strings.Builder
-	runDim := false
-	flush := func() {
-		if run.Len() > 0 {
-			b.WriteString(style(runDim).Render(run.String()))
-			run.Reset()
-		}
-	}
-	if cut {
-		b.WriteString(style(true).Render("…"))
-	}
-	for _, c := range cells {
-		d := c.off < dim
-		if matched[c.off] {
-			flush()
-			b.WriteString(matchOver(style(d)).Render(string(c.r)))
-			continue
-		}
-		if d != runDim {
-			flush()
-			runDim = d
-		}
-		run.WriteRune(c.r)
-	}
-	flush()
-	return b.String()
-}
-
-// selPad pads an already styled piece of the selected row to width, so the
-// row's background has no gaps.
-func selPad(s string, width int) string {
-	if n := width - ansi.StringWidth(s); n > 0 {
-		s += stSel.Render(strings.Repeat(" ", n))
-	}
-	return s
 }
 
 func (m *model) cursor() int {
