@@ -1,3 +1,8 @@
+## v0.3.0 (2026-09-19)
+
+* feat(mouse): move the selection with the wheel over the list (e9eee8c)
+* feat(ui): resize the list with shift+arrows (3be6c85)
+
 ## v0.2.0 (2026-09-18)
 
 * feat(ui): adopt the family's single-frame layout (b780fbf)
