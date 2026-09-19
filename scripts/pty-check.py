@@ -10,7 +10,7 @@ the real index and never opens an editor.
 
 Usage: scripts/pty-check.py ./asgotonotes [dark|light]   (needs python3 + pyte)
 """
-import atexit, fcntl, os, pty, select, shutil, signal, struct, subprocess, sys, tempfile, termios, time
+import atexit, fcntl, os, pty, re, select, shutil, signal, struct, subprocess, sys, tempfile, termios, time
 import pyte
 
 BIN = os.path.abspath(sys.argv[1])
@@ -292,6 +292,11 @@ check(at == listw() + 1, "without a saved split the list takes a quarter: %d" % 
 rows = [l for l in left(f) if l.strip()]
 check(rows[0].startswith("▌ ESHOP-551") and "5 notes" in rows[0] and rows[0].endswith("1m"),
       "a narrow list drops the repo column, not the count or the age: %r" % rows[0])
+f = s.send(ENTER, 0.6)
+rows = [l for l in left(f) if l.strip()]
+check(re.match(r"^▌ untracked +\d+[smhd]  …\S*/HANDOFF\.md$", rows[0].rstrip()),
+      "a narrow list shrinks the date to an age and keeps the file name: %r" % rows[0])
+f = s.send(ESC, 0.6)
 f = s.send(SHIFT_RIGHT, 0.6); grown = divider(f)
 check(grown > at and all(len(l) == COLS for l in f), "shift+right grows the list: %d -> %d" % (at, grown))
 f = s.send(SHIFT_LEFT, 0.6)

@@ -390,6 +390,12 @@ func (m *model) toggleAll() {
 const (
 	countColW = 10 // " 123 notes"
 	ageColW   = 4
+
+	// file rows: the date keeps its full form while the path gets
+	// filePathFullW cells, its compact form while it gets filePathAgeW
+	fileDateLayout = "02/01 15:04"
+	filePathFullW  = 28
+	filePathAgeW   = 16
 )
 
 func (m *model) renderList() {
@@ -449,9 +455,11 @@ func (m *model) groupLine(r groupRow, selected bool, width int) string {
 
 // fileLine renders one file row: status, last write, path. cursorCol adds
 // the two-cell gutter (cursor bar, multi-select mark) of view 2; the view 1
-// preview reuses the row without it.
+// preview reuses the row without it. The path is what the row is for, so a
+// narrow list takes the room from the date: it shrinks to the compact age of
+// view 1 and then goes away.
 func (m *model) fileLine(r fileRow, selected, cursorCol bool, width int) string {
-	const statusW, dateW = 9, 11
+	const statusW, minPathW = 9, 8
 	gutter := ""
 	if cursorCol {
 		mark := " "
@@ -464,10 +472,20 @@ func (m *model) fileLine(r fileRow, selected, cursorCol bool, width int) string 
 			gutter = " " + stMark.Render(mark)
 		}
 	}
-	pathW := width - ansi.StringWidth(gutter) - statusW - 1 - dateW - 2
-	if pathW < 8 {
-		pathW = 8
+	room := width - ansi.StringWidth(gutter) - statusW - 1
+	date := r.f.last.Format(fileDateLayout)
+	switch {
+	case room-len(fileDateLayout)-2 >= filePathFullW:
+	case room-ageColW-2 >= filePathAgeW:
+		date = padLeft(compactAge(r.f.last, m.now), ageColW)
+	default:
+		date = ""
 	}
+	sep := ""
+	if date != "" {
+		sep = "  "
+	}
+	pathW := max(minPathW, room-ansi.StringWidth(date)-len(sep))
 	display := tildePath(r.f.path, m.home)
 	dim := 0
 	if m.cur != nil && insideRoot(m.cur.root, r.f.path) {
@@ -477,13 +495,12 @@ func (m *model) fileLine(r fileRow, selected, cursorCol bool, width int) string 
 			dim = len(tildePath(g.root, m.home)) + 1
 		}
 	}
-	date := r.f.last.Format("02/01 15:04")
 	if selected {
-		line := gutter + padRight(r.f.status, statusW) + " " + date + "  " + pathCells(display, 0, nil, pathW, false)
+		line := gutter + padRight(r.f.status, statusW) + " " + date + sep + pathCells(display, 0, nil, pathW, false)
 		return stSel.Render(padRight(line, width))
 	}
 	status := statusStyle(r.f.status).Render(padRight(r.f.status, statusW))
-	return truncate(gutter+status+" "+stDim.Render(date)+"  "+pathCells(display, dim, r.idx, pathW, true), width)
+	return truncate(gutter+status+" "+stDim.Render(date)+sep+pathCells(display, dim, r.idx, pathW, true), width)
 }
 
 // pathCells fits a path into width. A path that does not fit loses its

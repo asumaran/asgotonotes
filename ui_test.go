@@ -252,6 +252,36 @@ func TestPathCellsKeepsTheFileName(t *testing.T) {
 	}
 }
 
+func TestFileLineGivesTheDateRoomToThePath(t *testing.T) {
+	m, root := uiFixture(t)
+	f := noteFile{path: filepath.Join(root, "HANDOFF.md"), last: m.now.Add(-3 * time.Hour), status: statusUntracked}
+	full := f.last.Format(fileDateLayout)
+	for _, tc := range []struct {
+		width     int
+		date, age bool
+	}{
+		{60, true, false},
+		{40, false, true},
+		{30, false, false},
+	} {
+		for _, selected := range []bool{false, true} {
+			line := ansi.Strip(m.fileLine(fileRow{f: f}, selected, true, tc.width))
+			if got := strings.Contains(line, full); got != tc.date {
+				t.Errorf("width %d selected %v: full date shown = %v, want %v in %q", tc.width, selected, got, tc.date, line)
+			}
+			if got := strings.Contains(line, " 3h "); got != tc.age {
+				t.Errorf("width %d selected %v: compact age shown = %v, want %v in %q", tc.width, selected, got, tc.age, line)
+			}
+			if !strings.Contains(line, "HANDOFF.md") {
+				t.Errorf("width %d selected %v: file name lost in %q", tc.width, selected, line)
+			}
+			if w := ansi.StringWidth(line); w > tc.width {
+				t.Errorf("width %d selected %v: row is %d cells wide", tc.width, selected, w)
+			}
+		}
+	}
+}
+
 func TestClickMovesTheCursorOnly(t *testing.T) {
 	m, _ := uiFixture(t)
 	res, _ := m.Update(tea.MouseClickMsg{X: 3, Y: listY(false) + 1, Button: tea.MouseLeft}) // second row
