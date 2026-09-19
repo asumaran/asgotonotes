@@ -10,17 +10,16 @@ Sibling of [asgotopr](https://github.com/asumaran/asgotopr) and
 popup, same fuzzy search.
 
 ```
-╭─────────────────────────────────────────────────────────────────────────────────────── 5/5 ─╮
-│ asgotonotes ❯                                                                               │
-├─────────────────────────────────────────────────┬───────────────────────────────────────────┤
-│▌ ESHOP-2707         monorepo-front   2 notes  2h│ untracked 17/09 17:18  ~/wt/…/PLAN.md     │
-│  ESHOP-2561         monorepo-front   5 notes 13h│ untracked 17/09 17:12  ~/wt/…/HANDOFF.md  │
-│  ESHOP-551          monorepo-front  20 notes 15h│                                           │
-│  FED-2283           synapse         29 notes  4w│                                           │
-│  dotfiles-bash/main dotfiles-bash    5 notes  1m│                                           │
-├─────────────────────────────────────────────────┴───────────────────────────────────────────┤
-│ type filter • enter files • ^a all files • ⇧↓ scroll preview • ⇧←/⇧→ resize • esc/q quit    │
-╰─────────────────────────────────────────────────────────────────────────────────────────────╯
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────── 4/4 ─╮
+│ asgotonotes ❯                                                                                                │
+├───────────────────────────┬──────────────────────────────────────────────────────────────────────────────────┤
+│▌ ESHOP-270    2 notes   2h│ untracked 17/09 17:18  ~/wt/shop/fix-ESHOP-270-ssr/PLAN.md                       │
+│  ESHOP-256    5 notes  13h│ untracked 17/09 17:12  ~/wt/shop/fix-ESHOP-270-ssr/HANDOFF.md                    │
+│  ESHOP-551   20 notes  15h│                                                                                  │
+│  FED-2283    29 notes   4w│                                                                                  │
+├───────────────────────────┴──────────────────────────────────────────────────────────────────────────────────┤
+│ type filter • enter files • ^a all files • ⇧↓ scroll preview • ⇧←/⇧→ resize • esc/q quit                     │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
 ## Requirements
@@ -67,7 +66,7 @@ The filter input is focused on open, so just type. There are two views.
 ### Worktrees
 
 One row per worktree root, newest write first: label, repo, number of notes
-and age of the newest write. The label is the ticket id found in
+and age of the newest write. A narrow list leaves the repo out. The label is the ticket id found in
 the branch or in the worktree directory name (`fix/eshop-2707-ssr` becomes
 `ESHOP-2707`), otherwise `repo/branch`, otherwise the path. The right side
 lists the notes of the worktree under the cursor. The filter matches the
@@ -77,7 +76,8 @@ label, the repo, the branch and the path. `enter` opens the worktree's files,
 ### Files
 
 The files of that worktree, newest write first. Each row has a status, the
-time of the last write and the path:
+time of the last write and the path. When the list is narrow the time shrinks
+to an age (`3h`) and then goes away, so the file name stays readable:
 
 | status | meaning |
 | --- | --- |
@@ -139,7 +139,7 @@ go build -o asgotonotes .   # local build (plugin runs ./asgotonotes from the re
 ./asgotonotes -dump -query eshop   # filtered worktrees with their scores
 go vet ./... && go test ./...
 scripts/pty-check.py ./asgotonotes   # end-to-end TUI check on a pty (python3 + pyte)
-herdr plugin link ~/Developer/asgotonotes   # register the working copy (no build step)
+herdr plugin link "$PWD"   # register the working copy (no build step)
 ```
 
 `ASGOTONOTES_OPENER` replaces the `zed` binary (the pty check points it at a

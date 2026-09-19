@@ -77,7 +77,7 @@ go build -o asgotonotes .    # plugin runs ./asgotonotes from the repo root
 ./asgotonotes -dump -all     # every indexed file
 ./asgotonotes -dump -query x # filtered groups with scores
 go vet ./... && go test ./...
-herdr plugin link ~/Developer/asgotonotes   # link does NOT run [[build]]; go build yourself
+herdr plugin link "$PWD"   # link does NOT run [[build]]; go build yourself
 ```
 
 Keybinding (user config): `prefix+i` / `ctrl+alt+i` → `plugin_action`
