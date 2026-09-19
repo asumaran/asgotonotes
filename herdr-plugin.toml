@@ -3,7 +3,7 @@ name = "asgotonotes"
 version = "0.4.0"
 min_herdr_version = "0.7.5"
 description = "Browse the notes Claude Code wrote, grouped by worktree, and open them in Zed"
-platforms = ["macos"]
+platforms = ["linux", "macos"]
 
 [[build]]
 command = ["scripts/fetch-binary.sh"]

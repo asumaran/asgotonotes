@@ -37,7 +37,7 @@ The file is tab-separated and has no header or quoting. Lines can repeat and
 come in any order, and repo and branch can be empty. Without that hook the
 popup has nothing to show. `CLAUDE_FILES_INDEX` points it at another file.
 
-It also needs the `zed` CLI (in Zed: `cli: install`), git, macOS and
+It also needs the `zed` CLI (in Zed: `cli: install`), git, macOS or Linux and
 herdr >= 0.7.5.
 
 ## Install
@@ -151,4 +151,4 @@ popup size from the manifest.
 `scripts/release.sh <X.Y.Z>` gates on a clean tree + green vet/build/test,
 generates the CHANGELOG entry from commit subjects, syncs the manifest
 version, commits, tags and publishes the GitHub release; CI then attaches
-`asgotonotes-darwin-arm64`, the asset `fetch-binary.sh` downloads on installs.
+the `asgotonotes-<os>-<arch>` binaries (macOS and Linux, arm64 and amd64), the assets `fetch-binary.sh` downloads on installs.
