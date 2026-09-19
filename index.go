@@ -36,6 +36,19 @@ func homeDir() string {
 	return h
 }
 
+// stateDir is the herdr-injected per-plugin state dir; standalone runs fall
+// back to a fixed path under ~/.config/herdr.
+func stateDir() string {
+	if dir := os.Getenv("HERDR_PLUGIN_STATE_DIR"); dir != "" {
+		return dir
+	}
+	base := os.Getenv("XDG_CONFIG_HOME")
+	if base == "" {
+		base = filepath.Join(homeDir(), ".config")
+	}
+	return filepath.Join(base, "herdr", "gotonotes-tui")
+}
+
 // record is one index line.
 type record struct {
 	ts      int64

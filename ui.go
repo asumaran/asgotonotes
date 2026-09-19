@@ -97,6 +97,8 @@ type keyMap struct {
 	Quit     key.Binding
 	PrevUp   key.Binding
 	PrevDown key.Binding
+	Shrink   key.Binding
+	Grow     key.Binding
 	Filter   key.Binding
 
 	files bool // which view the short help describes
@@ -104,9 +106,9 @@ type keyMap struct {
 
 func (k keyMap) ShortHelp() []key.Binding {
 	if k.files {
-		return []key.Binding{k.Open, k.Mark, k.OpenAll, k.Toggle, k.PrevDown, k.Back}
+		return []key.Binding{k.Open, k.Mark, k.OpenAll, k.Toggle, k.PrevDown, k.Shrink, k.Back}
 	}
-	return []key.Binding{k.Filter, k.Files, k.Toggle, k.PrevDown, k.Quit}
+	return []key.Binding{k.Filter, k.Files, k.Toggle, k.PrevDown, k.Shrink, k.Quit}
 }
 func (k keyMap) FullHelp() [][]key.Binding { return [][]key.Binding{k.ShortHelp()} }
 
@@ -123,6 +125,8 @@ func defaultKeys() keyMap {
 		Quit:     key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc/q", "quit")),
 		PrevUp:   key.NewBinding(key.WithKeys("shift+up", "pgup"), key.WithHelp("⇧↑", "")),
 		PrevDown: key.NewBinding(key.WithKeys("shift+down", "pgdown"), key.WithHelp("⇧↓", "scroll preview")),
+		Shrink:   key.NewBinding(key.WithKeys("shift+left"), key.WithHelp("⇧←/⇧→", "resize")),
+		Grow:     key.NewBinding(key.WithKeys("shift+right")),
 		// Help-only entry: a binding without keys is disabled and the help
 		// bubble would skip it. Nothing ever matches against it.
 		Filter: key.NewBinding(key.WithKeys("type"), key.WithHelp("type", "filter")),
@@ -167,6 +171,7 @@ type model struct {
 	keys   keyMap
 	width  int
 	height int
+	split  int // the preview's share of the width, percent
 
 	// preview render cache
 	renders map[string]string
@@ -192,6 +197,7 @@ func newModel(groups []*group, loadErr string) model {
 		prevVP:       viewport.New(viewport.WithWidth(40), viewport.WithHeight(20)),
 		help:         help.New(),
 		keys:         defaultKeys(),
+		split:        loadSplit(stateDir()),
 		renders:      map[string]string{},
 		previewStyle: "dark",
 		width:        94,
@@ -248,11 +254,11 @@ func (m *model) innerW() int { return max(20, m.width-2) }
 
 // detailsW is the preview's share of the main section, including the cell of
 // padding on each side; prevW is the text width inside it.
-func (m *model) detailsW() int { return max(12, m.innerW()/2) }
+func (m *model) detailsW() int { _, w := splitWidths(m.innerW(), m.split); return w }
 func (m *model) prevW() int    { return max(10, m.detailsW()-2) }
 
 // listW is what the divider leaves for the list.
-func (m *model) listW() int { return max(10, m.innerW()-1-m.detailsW()) }
+func (m *model) listW() int { w, _ := splitWidths(m.innerW(), m.split); return w }
 
 // hasContext reports whether the frame carries its context line: only view 2
 // does (the group header), so the two views differ by two lines.
@@ -268,6 +274,15 @@ func (m *model) resize() {
 	m.prevVP.SetWidth(m.prevW())
 	m.prevVP.SetHeight(m.bodyH())
 	m.help.SetWidth(max(0, m.width-4))
+}
+
+// resizeList moves the divider between the list and the preview by one step.
+func (m *model) resizeList(grow bool) tea.Cmd {
+	m.split = stepSplit(m.split, grow)
+	saveSplit(stateDir(), m.split)
+	m.resize()
+	m.renderList()
+	return m.updatePreview()
 }
 
 // ---- filtering ----
@@ -400,16 +415,17 @@ func (m *model) renderList() {
 }
 
 // groupLine renders one worktree row in fixed columns: label, repo, count,
-// age. The selected row is padded to the full width before styling so its
-// background spans the whole column.
+// age. A list too narrow for all four drops the repo, which the label and the
+// preview's paths already hint at. The selected row is padded to the full
+// width before styling so its background spans the whole column.
 func (m *model) groupLine(r groupRow, selected bool, width int) string {
 	repoW := 18
 	if width < 60 {
 		repoW = 12
 	}
 	labelW := width - 2 - 1 - repoW - 1 - countColW - 1 - ageColW
-	if labelW < 8 {
-		labelW = 8
+	if labelW < 12 {
+		repoW, labelW = 0, max(8, labelW+repoW+1)
 	}
 	repo := r.g.repo
 	if repo == "" {
@@ -418,12 +434,17 @@ func (m *model) groupLine(r groupRow, selected bool, width int) string {
 	count := padLeft(countLabel(r.g.count(m.allFiles), m.allFiles), countColW)
 	age := padLeft(compactAge(r.g.last, m.now), ageColW)
 	if selected {
-		line := "▌ " + padRight(r.g.label, labelW) + " " + padRight(repo, repoW) + " " + count + " " + age
-		return stSel.Render(padRight(line, width))
+		line := "▌ " + padRight(r.g.label, labelW) + " "
+		if repoW > 0 {
+			line += padRight(repo, repoW) + " "
+		}
+		return stSel.Render(padRight(line+count+" "+age, width))
 	}
-	label := padRight(highlight(r.g.label, r.labelIdx, stTitle), labelW)
-	repoCol := padRight(highlight(repo, r.repoIdx, stRepo), repoW)
-	return truncate("  "+label+" "+repoCol+" "+count+" "+stDim.Render(age), width)
+	line := "  " + padRight(highlight(r.g.label, r.labelIdx, stTitle), labelW) + " "
+	if repoW > 0 {
+		line += padRight(highlight(repo, r.repoIdx, stRepo), repoW) + " "
+	}
+	return truncate(line+count+" "+stDim.Render(age), width)
 }
 
 // fileLine renders one file row: status, last write, path. cursorCol adds
@@ -809,6 +830,10 @@ func (m model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.setCursor(m.cursor() + 1)
 		m.renderList()
 		return m, m.updatePreview()
+	case key.Matches(msg, m.keys.Shrink):
+		return m, m.resizeList(false)
+	case key.Matches(msg, m.keys.Grow):
+		return m, m.resizeList(true)
 	case key.Matches(msg, m.keys.PrevUp):
 		m.prevVP.ScrollUp(3)
 		return m, nil

@@ -96,7 +96,7 @@ class Session:
         env = dict(os.environ, TERM="xterm-256color", COLORTERM="truecolor", HOME=home,
                    CLAUDE_FILES_INDEX=index, GOTONOTES_OPENER=opener,
                    GIT_CONFIG_GLOBAL="/dev/null", GIT_CONFIG_SYSTEM="/dev/null")
-        env.pop("HERDR_ENV", None)
+        for k in ("HERDR_ENV", "HERDR_PLUGIN_STATE_DIR", "XDG_CONFIG_HOME"): env.pop(k, None)   # the state dir stays under the fake HOME
         self.master, slave = pty.openpty()
         fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", ROWS, COLS, 0, 0))
         self.proc = subprocess.Popen([BIN], stdin=slave, stdout=slave, stderr=slave, env=env,
@@ -170,11 +170,13 @@ class Session:
 # its edge on top, so everything below sits two lines lower there; the main
 # edge is found by its divider joint.
 INNER = COLS - 2
-def listw(): return INNER - 1 - INNER // 2
+def listw(): return max(COLS - 3 - (COLS - 2) * 75 // 100, 10)   # the default split: list 25%, preview 75%
+def divider(f): return next(l for l in f if l.startswith("├") and "┬" in l).index("┬")
+SHIFT_RIGHT, SHIFT_LEFT = b"\x1b[1;2C", b"\x1b[1;2D"
 def edge(f):  return next(i for i, l in enumerate(f) if l.startswith("├") and "┬" in l)
 def main(f):  return f[edge(f) + 1:-3]
-def left(f, top=1):  return [l[1:1 + listw()].rstrip() for l in main(f)]
-def right(f, top=1): return [l[listw() + 3:-1].rstrip() for l in main(f)]
+def left(f, top=1):  return [l[1:divider(f)].rstrip() for l in main(f)]
+def right(f, top=1): return [l[divider(f) + 2:-1].rstrip() for l in main(f)]
 def prompt(f):   return f[edge(f) - 1].strip("│ ").rstrip()
 def context(f):  return f[1].strip("│").strip() if edge(f) == 4 else ""
 def helpline(f): return f[-2]
@@ -185,6 +187,12 @@ def dump(title, f):
 CTRL_A, CTRL_O, ESC, ENTER, TAB, DOWN, UP = b"\x01", b"\x0f", b"\x1b", b"\r", b"\t", b"\x1b[B", b"\x1b[A"
 
 print("== gotonotes pty driver (%s background, %dx%d) ==" % (BG, COLS, ROWS))
+
+# The content checks read every column, so they run with the list at half the
+# width; run 4 goes back to the default split.
+split_file = os.path.join(home, ".config", "herdr", "gotonotes-tui", "split-columns")
+os.makedirs(os.path.dirname(split_file), exist_ok=True)
+with open(split_file, "w") as fh: fh.write("50\n")
 
 # ---------- run 1: browse, filter, multi-select, open ----------
 s = Session()
@@ -275,6 +283,26 @@ s = Session()
 s.start()
 s.send(b"q", 0.2)
 check(s.finish() == 0 and s.opened() == [], "q quits with an empty filter and opens nothing")
+
+# ---------- run 4: the divider moves and stays where it was left ----------
+os.remove(split_file)
+s = Session()
+f = s.start(); at = divider(f)
+check(at == listw() + 1, "without a saved split the list takes a quarter: %d" % at)
+rows = [l for l in left(f) if l.strip()]
+check(rows[0].startswith("▌ ESHOP-551") and "5 notes" in rows[0] and rows[0].endswith("1m"),
+      "a narrow list drops the repo column, not the count or the age: %r" % rows[0])
+f = s.send(SHIFT_RIGHT, 0.6); grown = divider(f)
+check(grown > at and all(len(l) == COLS for l in f), "shift+right grows the list: %d -> %d" % (at, grown))
+f = s.send(SHIFT_LEFT, 0.6)
+check(divider(f) == at, "shift+left shrinks it back: %d" % divider(f))
+s.send(SHIFT_RIGHT, 0.6)
+s.send(b"q", 0.2); s.finish()
+s = Session()
+f = s.start()
+check(divider(f) == grown, "the next run opens with the same split: %d" % divider(f))
+s.send(SHIFT_LEFT, 0.6)
+s.send(b"q", 0.2); s.finish()
 
 shutil.rmtree(SANDBOX, ignore_errors=True)
 print("\n%d failure(s)" % len(failures))
