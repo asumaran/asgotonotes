@@ -1,3 +1,9 @@
+## v0.2.0 (2026-09-18)
+
+* feat(ui): adopt the family's single-frame layout (b780fbf)
+* ci: run gofmt, vet and tests on push (38b2cbd)
+* chore: add the MIT license (21357db)
+
 ## v0.1.1 (2026-09-18)
 
 * docs: describe the memory file exclusion (3175c07)
