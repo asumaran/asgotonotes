@@ -98,7 +98,8 @@ exist are skipped; if nothing is left to open, the popup stays up and says so.
 
 `ctrl+a` switches between notes and every indexed file. `↑/↓` (or
 `ctrl+p`/`ctrl+n`) move the cursor. `shift+↓`/`shift+↑` (or
-PgDn/PgUp) and the mouse wheel scroll the preview. `shift+←`/`shift+→` resize
+PgDn/PgUp) scroll the preview. The mouse wheel moves the cursor over the list
+and scrolls the preview anywhere else. `shift+←`/`shift+→` resize
 the list; the split is remembered, and the list takes a quarter of the width
 by default. A click selects a row.
 

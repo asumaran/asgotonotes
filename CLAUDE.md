@@ -157,8 +157,10 @@ Keybinding (user config): `prefix+i` / `ctrl+alt+i` → `plugin_action`
   when the style flips, the render cache is dropped and the current preview
   re-renders. Don't call glamour's `WithAutoStyle` or lipgloss's
   `HasDarkBackground` from inside the program.
-- **Mouse**: the wheel always scrolls the preview; a left click on a list row
-  moves the cursor and never opens anything (same reasoning as gotopr).
+- **Mouse**: the wheel follows the pointer, as in asgitlog: over the list
+  (`overList`) it moves the cursor through the same code as the arrow keys,
+  anywhere else it scrolls the preview. A left click on a list row moves the
+  cursor and never opens anything.
 - **Alt screen and mouse mode** are declared per frame in `View()`; there is
   no `tea.WithAltScreen` program option in v2.
 
