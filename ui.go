@@ -290,9 +290,6 @@ func (m *model) applyFilter() {
 	if m.view == viewFiles {
 		m.fRows = filterFiles(m.cur.visibleFiles(m.allFiles), q, m.home)
 		m.fCursor = 0
-		if q != "" {
-			m.fCursor = bestIndex(len(m.fRows), func(i int) int { return m.fRows[i].score })
-		}
 		if len(m.fRows) == 0 {
 			m.fCursor = -1
 		}
@@ -300,9 +297,6 @@ func (m *model) applyFilter() {
 	}
 	m.gRows = filterGroups(visibleGroups(m.groups, m.allFiles), q, m.home)
 	m.gCursor = 0
-	if q != "" {
-		m.gCursor = bestIndex(len(m.gRows), func(i int) int { return m.gRows[i].score })
-	}
 	if len(m.gRows) == 0 {
 		m.gCursor = -1
 	}

@@ -53,7 +53,7 @@ Files are split by concern:
   `compactAge`, `tildePath`.
 - `git.go` — `trackedFiles` (the one-call-per-group lookup), `parseLsFiles`,
   `resolveStatuses` (groups in parallel).
-- `filter.go` — fuzzy rows for both views, `bestIndex`, `highlight`.
+- `filter.go` — fuzzy rows for both views.
 - `match.go` — `findTight`, the fuzzy matcher with one correction: it is
   greedy (first candidate for each rune, left to right), so a query that
   occurs in one piece could still match scattered letters before it. When the
@@ -144,8 +144,12 @@ Keybinding (user config): `prefix+i` / `ctrl+alt+i` → `plugin_action`
   root removed) means "not in git". All groups resolve in parallel before the
   first frame (about 100 ms for 60 roots) and the result lives for the popup
   lifetime; there is no on-disk cache.
-- **Filtering keeps the newest-first order**; the fuzzy score only decides
-  where the cursor lands (`bestIndex`). View 1 matches label, repo and a
+- **A query makes the list a search result**: rows are ranked, best match
+  first, and the cursor sits on the first one (`rank` in `rank.go`, the same
+  file in every picker of the family). Equal scores keep the list's own
+  order, newest first, which is also the order without a query. A score says how
+  good the match is and nothing about the length of the text (`match.go`).
+  View 1 matches label, repo and a
   hidden corpus (branch + root); view 2 matches the `~` path and the status.
   Matched indexes from `sahilm/fuzzy` are BYTE offsets. With an empty query
   the cursor stays on the row it was on (`refilter`).

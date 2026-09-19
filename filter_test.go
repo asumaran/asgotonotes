@@ -59,14 +59,15 @@ func TestFilterGroupsMatchesRepoAndBranch(t *testing.T) {
 	}
 }
 
-func TestBestIndexPrefersExactTicket(t *testing.T) {
+func TestFilteringPutsTheExactTicketFirst(t *testing.T) {
 	rows := filterGroups(filterFixture(), "eshop-551", testHome)
-	best := bestIndex(len(rows), func(i int) int { return rows[i].score })
-	if best < 0 || rows[best].g.label != "ESHOP-551" {
-		t.Errorf("best = %d (%s)", best, rowLabels(rows))
+	if len(rows) == 0 || rows[0].g.label != "ESHOP-551" {
+		t.Errorf("rows = %s, want ESHOP-551 first", rowLabels(rows))
 	}
-	if bestIndex(0, func(int) int { return 0 }) != -1 {
-		t.Error("empty list has no best row")
+	for i := 1; i < len(rows); i++ {
+		if rows[i].score > rows[i-1].score {
+			t.Errorf("rows are not ranked: %s", rowLabels(rows))
+		}
 	}
 }
 

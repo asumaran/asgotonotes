@@ -65,7 +65,7 @@ func filterGroups(groups []*group, q, home string) []groupRow {
 			rows = append(rows, *r)
 		}
 	}
-	return rows
+	return rank(rows, func(r groupRow) int { return r.score }, nil) // a search result: best match first
 }
 
 // filterFiles matches the query against the status and the ~ path of each
@@ -100,17 +100,5 @@ func filterFiles(files []noteFile, q, home string) []fileRow {
 			rows = append(rows, *r)
 		}
 	}
-	return rows
-}
-
-// bestIndex returns the position of the highest score; ties go to the first
-// (newest) row. -1 for an empty list.
-func bestIndex(n int, score func(int) int) int {
-	best := -1
-	for i := 0; i < n; i++ {
-		if best == -1 || score(i) > score(best) {
-			best = i
-		}
-	}
-	return best
+	return rank(rows, func(r fileRow) int { return r.score }, nil) // a search result: best match first
 }
