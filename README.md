@@ -97,8 +97,9 @@ exist are skipped; if nothing is left to open, the popup stays up and says so.
 ### Both views
 
 `ctrl+a` switches between notes and every indexed file. `↑/↓` (or
-`ctrl+p`/`ctrl+n`) move the cursor. `shift+↓`/`shift+↑` (or
-PgDn/PgUp) scroll the preview. The mouse wheel moves the cursor over the list
+`ctrl+p`/`ctrl+n`) move the cursor, PgDn/PgUp move it a page, and
+`alt+↑`/`alt+↓` (or Home/End) take it to the top or the bottom of the list.
+`shift+↓`/`shift+↑` scroll the preview. `?` (while the filter is empty) or `f1` expands the help line into every key; `esc` folds it. The mouse wheel moves the cursor over the list
 and scrolls the preview anywhere else. `shift+←`/`shift+→` resize
 the list; the split is remembered, and the list takes a quarter of the width
 by default. A click selects a row.

@@ -84,8 +84,7 @@ func statusStyle(status string) lipgloss.Style {
 // ---- key bindings ----
 
 type keyMap struct {
-	Up       key.Binding
-	Down     key.Binding
+	Nav      listNav
 	Files    key.Binding // view 1: enter the group
 	Open     key.Binding // view 2: open in Zed
 	Mark     key.Binding
@@ -98,22 +97,40 @@ type keyMap struct {
 	Shrink   key.Binding
 	Grow     key.Binding
 	Filter   key.Binding
+	Help     key.Binding
 
 	files bool // which view the short help describes
 }
 
+// ShortHelp is the folded help line: the view's own actions, the help and the
+// quit keys. Moving, scrolling and resizing are in the expanded help, so the
+// line stays short enough for a narrow popup (a cut line loses the quit keys
+// first).
 func (k keyMap) ShortHelp() []key.Binding {
 	if k.files {
-		return []key.Binding{k.Open, k.Mark, k.OpenAll, k.Toggle, k.PrevDown, k.Shrink, k.Back}
+		return []key.Binding{k.Open, k.Mark, k.OpenAll, k.Toggle, k.Help, k.Back}
 	}
-	return []key.Binding{k.Filter, k.Files, k.Toggle, k.PrevDown, k.Shrink, k.Quit}
+	return []key.Binding{k.Filter, k.Files, k.Toggle, k.Help, k.Quit}
 }
-func (k keyMap) FullHelp() [][]key.Binding { return [][]key.Binding{k.ShortHelp()} }
+
+// FullHelp is what `?` expands the help into, one column per group: the
+// filter and the preview, the list, the view's actions, help and quit.
+func (k keyMap) FullHelp() [][]key.Binding {
+	actions, leave := []key.Binding{k.Files, k.Toggle}, k.Quit
+	if k.files {
+		actions, leave = []key.Binding{k.Open, k.Mark, k.OpenAll, k.Toggle}, k.Back
+	}
+	return [][]key.Binding{
+		{k.Filter, k.PrevUp, k.Shrink},
+		{k.Nav.Up, k.Nav.PageUp, k.Nav.Top},
+		actions,
+		{k.Help, leave},
+	}
+}
 
 func defaultKeys() keyMap {
 	return keyMap{
-		Up:       key.NewBinding(key.WithKeys("up", "ctrl+p"), key.WithHelp("↑/^p", "up")),
-		Down:     key.NewBinding(key.WithKeys("down", "ctrl+n"), key.WithHelp("↓/^n", "down")),
+		Nav:      defaultListNav(),
 		Files:    key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "files")),
 		Open:     key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "open in Zed")),
 		Mark:     key.NewBinding(key.WithKeys("tab", "space", "shift+tab"), key.WithHelp("tab", "multi")),
@@ -121,13 +138,14 @@ func defaultKeys() keyMap {
 		Toggle:   key.NewBinding(key.WithKeys("ctrl+a"), key.WithHelp("^a", "all files")),
 		Back:     key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back")),
 		Quit:     key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc/q", "quit")),
-		PrevUp:   key.NewBinding(key.WithKeys("shift+up", "pgup"), key.WithHelp("⇧↑", "")),
-		PrevDown: key.NewBinding(key.WithKeys("shift+down", "pgdown"), key.WithHelp("⇧↓", "scroll preview")),
-		Shrink:   key.NewBinding(key.WithKeys("shift+left"), key.WithHelp("⇧←/⇧→", "resize")),
+		PrevUp:   key.NewBinding(key.WithKeys("shift+up"), key.WithHelp("⇧↑/⇧↓", "scroll preview")),
+		PrevDown: key.NewBinding(key.WithKeys("shift+down")),
+		Shrink:   key.NewBinding(key.WithKeys("shift+left"), key.WithHelp("⇧←/⇧→", "resize the list")),
 		Grow:     key.NewBinding(key.WithKeys("shift+right")),
 		// Help-only entry: a binding without keys is disabled and the help
 		// bubble would skip it. Nothing ever matches against it.
 		Filter: key.NewBinding(key.WithKeys("type"), key.WithHelp("type", "filter")),
+		Help:   helpKey,
 	}
 }
 
@@ -264,7 +282,25 @@ func (m *model) hasContext() bool { return m.view == viewFiles }
 
 // bodyH is the height of the main section: everything but the frame's own
 // lines and the help.
-func (m *model) bodyH() int { return max(1, m.height-frameRows(m.hasContext())-1) }
+func (m *model) bodyH() int { return max(1, m.height-frameRows(m.hasContext())-m.footH()) }
+
+// footH is the height of the foot: a message takes one line, the help more
+// while `?` has it expanded; the main section keeps at least minBodyH.
+func (m *model) footH() int {
+	if m.footMsg() != "" {
+		return 1
+	}
+	return helpHeight(m.help, m.keys, m.height-frameRows(m.hasContext())-minBodyH)
+}
+
+const minBodyH = 4
+
+func (m *model) toggleHelp() tea.Cmd {
+	m.help.ShowAll = !m.help.ShowAll
+	m.resize()
+	m.renderList()
+	return m.updatePreview()
+}
 
 func (m *model) resize() {
 	m.listVP.SetWidth(m.listW())
@@ -762,6 +798,10 @@ func (m model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case msg.String() == "ctrl+c":
 		return m, tea.Quit
+	case foldsHelp(msg, m.help):
+		return m, m.toggleHelp() // esc folds the help before it goes back or quits
+	case isHelpKey(msg, m.ti.Value()):
+		return m, m.toggleHelp()
 	case msg.String() == "q" && m.ti.Value() == "":
 		// q quits only while the filter is empty; otherwise it is text.
 		return m, tea.Quit
@@ -776,12 +816,8 @@ func (m model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.toggleAll()
 		m.renderList()
 		return m, m.updatePreview()
-	case key.Matches(msg, m.keys.Up):
-		m.setCursor(m.cursor() - 1)
-		m.renderList()
-		return m, m.updatePreview()
-	case key.Matches(msg, m.keys.Down):
-		m.setCursor(m.cursor() + 1)
+	case m.keys.Nav.matches(msg):
+		m.setCursor(m.keys.Nav.move(msg, m.cursor(), m.rowCount(), m.listVP.Height(), nil))
 		m.renderList()
 		return m, m.updatePreview()
 	case key.Matches(msg, m.keys.Shrink):
@@ -873,7 +909,10 @@ func (m model) render() string {
 	out := frameHead(w, m.context(), m.counter(), m.ti.View())
 	out = append(out, splitMain(m.listLines(), strings.Split(m.prevVP.View(), "\n"),
 		m.listW(), m.detailsW(), listPos(&m.listVP, nil), scrollPos(&m.prevVP))...)
-	out = append(out, framed(w, m.footer()), hline(w, "╰", "╯", "", ""))
+	for _, l := range m.footLines() {
+		out = append(out, framed(w, l))
+	}
+	out = append(out, hline(w, "╰", "╯", "", ""))
 	return strings.Join(out, "\n")
 }
 
@@ -938,9 +977,17 @@ func (m model) groupHeader() string {
 }
 
 // footer is the key help, or the notice while one is showing.
-func (m model) footer() string {
+// footMsg is what takes the help's place while there is something to say.
+func (m model) footMsg() string {
 	if m.notice != "" {
 		return stError.Render(truncate(m.notice, max(0, m.width-4)))
 	}
-	return truncate(m.help.View(m.keys), max(0, m.width-4))
+	return ""
+}
+
+func (m model) footLines() []string {
+	if msg := m.footMsg(); msg != "" {
+		return []string{msg}
+	}
+	return helpLines(m.help, m.keys, m.width-4, m.footH())
 }
