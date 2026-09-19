@@ -1,3 +1,11 @@
+## v0.6.0 (2026-09-19)
+
+* feat(ui): mark matches like asgitlog, selected row too (9689482)
+* feat(ui): show the list's position under the list (b924459)
+* docs(readme): redraw the mockup at the default split (a2ba728)
+* feat(ui): give the date's room to the path (a141448)
+* ci: spend less time on CI and on releases (aae21b2)
+
 ## v0.5.0 (2026-09-19)
 
 * feat: support linux and share the release process (d713ee3)
