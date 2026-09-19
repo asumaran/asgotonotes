@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
-	"github.com/sahilm/fuzzy"
 )
 
 // groupRow is one worktree in view 1.
@@ -56,13 +55,13 @@ func filterGroups(groups []*group, q, home string) []groupRow {
 		}
 		return r
 	}
-	for _, mt := range fuzzy.Find(q, labels) {
+	for _, mt := range findTight(q, labels) {
 		hit(mt.Index, mt.Score).labelIdx = append([]int(nil), mt.MatchedIndexes...)
 	}
-	for _, mt := range fuzzy.Find(q, repos) {
+	for _, mt := range findTight(q, repos) {
 		hit(mt.Index, mt.Score).repoIdx = append([]int(nil), mt.MatchedIndexes...)
 	}
-	for _, mt := range fuzzy.Find(q, hidden) {
+	for _, mt := range findTight(q, hidden) {
 		hit(mt.Index, mt.Score)
 	}
 	for i := range groups {
@@ -90,10 +89,10 @@ func filterFiles(files []noteFile, q, home string) []fileRow {
 		statuses[i] = f.status
 	}
 	hits := map[int]*fileRow{}
-	for _, mt := range fuzzy.Find(q, paths) {
+	for _, mt := range findTight(q, paths) {
 		hits[mt.Index] = &fileRow{f: files[mt.Index], score: mt.Score, idx: append([]int(nil), mt.MatchedIndexes...)}
 	}
-	for _, mt := range fuzzy.Find(q, statuses) {
+	for _, mt := range findTight(q, statuses) {
 		if r, ok := hits[mt.Index]; !ok {
 			hits[mt.Index] = &fileRow{f: files[mt.Index], score: mt.Score}
 		} else if mt.Score > r.score {
