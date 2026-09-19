@@ -1,9 +1,9 @@
-// gotonotes: a herdr plugin popup that browses the notes Claude Code wrote
+// asgotonotes: a herdr plugin popup that browses the notes Claude Code wrote
 // (plans, handoffs, drafts, reports), grouped by worktree, and opens the
 // chosen ones in Zed.
 //
 // The data comes from ~/.claude/files-index/index.tsv, appended by a Claude
-// Code PostToolUse hook on every Write/Edit. gotonotes only reads: it never
+// Code PostToolUse hook on every Write/Edit. asgotonotes only reads: it never
 // edits, deletes or commits anything.
 package main
 
@@ -41,7 +41,7 @@ func main() {
 
 	if *dump {
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "gotonotes:", err)
+			fmt.Fprintln(os.Stderr, "asgotonotes:", err)
 			os.Exit(1)
 		}
 		runDump(groups, *all, *query, time.Since(start))

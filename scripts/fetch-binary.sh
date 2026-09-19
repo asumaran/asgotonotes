@@ -1,5 +1,5 @@
 #!/bin/sh
-# fetch-binary.sh — the plugin's [[build]] command: provision ./gotonotes without
+# fetch-binary.sh — the plugin's [[build]] command: provision ./asgotonotes without
 # requiring a Go toolchain.
 #
 # Downloads the prebuilt binary attached to the GitHub release matching the
@@ -9,9 +9,9 @@
 # fails. Exits non-zero only when neither path works, which aborts the plugin
 # install.
 #
-# Set GOTONOTES_BUILD_FROM_SOURCE=1 to skip the download and always compile
+# Set ASGOTONOTES_BUILD_FROM_SOURCE=1 to skip the download and always compile
 # locally (for users who prefer not to run prebuilt binaries):
-#   GOTONOTES_BUILD_FROM_SOURCE=1 herdr plugin install asumaran/gotonotes
+#   ASGOTONOTES_BUILD_FROM_SOURCE=1 herdr plugin install asumaran/asgotonotes
 set -eu
 
 cd "$(dirname "$0")/.."
@@ -33,16 +33,16 @@ case "$(uname -m)" in
   *)               ARCH="" ;;
 esac
 
-URL="https://github.com/asumaran/gotonotes/releases/download/v${VERSION}/gotonotes-${OS}-${ARCH}"
+URL="https://github.com/asumaran/asgotonotes/releases/download/v${VERSION}/asgotonotes-${OS}-${ARCH}"
 
-if [ "${GOTONOTES_BUILD_FROM_SOURCE:-0}" = "1" ]; then
-  echo "fetch-binary: GOTONOTES_BUILD_FROM_SOURCE=1, skipping release download"
+if [ "${ASGOTONOTES_BUILD_FROM_SOURCE:-0}" = "1" ]; then
+  echo "fetch-binary: ASGOTONOTES_BUILD_FROM_SOURCE=1, skipping release download"
 elif [ -n "$OS" ] && [ -n "$ARCH" ] && command -v curl >/dev/null 2>&1; then
   tmp="$(mktemp)"
   if curl -fsSL --retry 2 -o "$tmp" "$URL"; then
     chmod +x "$tmp"
-    mv "$tmp" gotonotes
-    echo "fetch-binary: installed gotonotes-${OS}-${ARCH} from release v${VERSION}"
+    mv "$tmp" asgotonotes
+    echo "fetch-binary: installed asgotonotes-${OS}-${ARCH} from release v${VERSION}"
     exit 0
   fi
   rm -f "$tmp"
@@ -50,8 +50,8 @@ elif [ -n "$OS" ] && [ -n "$ARCH" ] && command -v curl >/dev/null 2>&1; then
 fi
 
 if command -v go >/dev/null 2>&1; then
-  go build -ldflags "-X main.version=v${VERSION}-source" -o gotonotes .
-  echo "fetch-binary: built gotonotes from source (v${VERSION}-source)"
+  go build -ldflags "-X main.version=v${VERSION}-source" -o asgotonotes .
+  echo "fetch-binary: built asgotonotes from source (v${VERSION}-source)"
   exit 0
 fi
 

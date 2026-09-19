@@ -18,7 +18,7 @@ func uiFixture(t *testing.T) (model, string) {
 	t.Helper()
 	dir := t.TempDir()
 	t.Setenv("HOME", dir)
-	t.Setenv("GOTONOTES_OPENER", "/usr/bin/true")
+	t.Setenv("ASGOTONOTES_OPENER", "/usr/bin/true")
 	root := filepath.Join(dir, "wt", "shop", "fix-ESHOP-551")
 	os.MkdirAll(root, 0o755)
 	write := func(name, body string) string {
@@ -311,7 +311,7 @@ func TestFrameGeometry(t *testing.T) {
 	}
 	check(m, "view 1")
 	// View 1 has no context line: the input sits right under the top border.
-	if top := strings.Split(ansi.Strip(m.View().Content), "\n"); !strings.Contains(top[0], "2/2") || !strings.HasPrefix(top[1], "│ gotonotes") {
+	if top := strings.Split(ansi.Strip(m.View().Content), "\n"); !strings.Contains(top[0], "2/2") || !strings.HasPrefix(top[1], "│ asgotonotes") {
 		t.Errorf("view 1 head:\n%s\n%s", top[0], top[1])
 	}
 	if c := ansi.Strip(m.counter()); c != "2/2" {
@@ -326,7 +326,7 @@ func TestFrameGeometry(t *testing.T) {
 
 // TestMain sandboxes the state dir: tests must never touch the real one.
 func TestMain(m *testing.M) {
-	dir, err := os.MkdirTemp("", "gotonotes-test")
+	dir, err := os.MkdirTemp("", "asgotonotes-test")
 	if err != nil {
 		panic(err)
 	}

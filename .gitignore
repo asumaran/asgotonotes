@@ -1,6 +1,6 @@
 # Compiled binary (built locally or in CI; attached to GitHub Releases as an asset).
-/gotonotes
-gotonotes-darwin-*
+/asgotonotes
+asgotonotes-darwin-*
 
 # Release staging
 /dist/

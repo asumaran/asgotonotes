@@ -1,17 +1,17 @@
-# gotonotes
+# asgotonotes
 
 A [herdr](https://github.com/asumaran/herdr) plugin popup for finding the
 notes Claude Code left behind: plans, handoffs, drafts, reports. They are
 grouped by worktree, because one worktree is one ticket no matter how many
 sessions worked on it, and the ones you pick open in Zed.
 
-Sibling of [gotopr](https://github.com/asumaran/gotopr) and
-[herdr-goto](https://github.com/asumaran/herdr-goto): same open-pick-exit
+Sibling of [asgotopr](https://github.com/asumaran/asgotopr) and
+[asgoto](https://github.com/asumaran/asgoto): same open-pick-exit
 popup, same fuzzy search.
 
 ```
 ╭─────────────────────────────────────────────────────────────────────────────────────── 5/5 ─╮
-│ gotonotes ❯                                                                                 │
+│ asgotonotes ❯                                                                               │
 ├─────────────────────────────────────────────────┬───────────────────────────────────────────┤
 │▌ ESHOP-2707         monorepo-front   2 notes  2h│ untracked 17/09 17:18  ~/wt/…/PLAN.md     │
 │  ESHOP-2561         monorepo-front   5 notes 13h│ untracked 17/09 17:12  ~/wt/…/HANDOFF.md  │
@@ -25,7 +25,7 @@ popup, same fuzzy search.
 
 ## Requirements
 
-gotonotes reads an index it does not write. A Claude Code `PostToolUse` hook
+asgotonotes reads an index it does not write. A Claude Code `PostToolUse` hook
 appends one line to `~/.claude/files-index/index.tsv` for every
 Write/Edit/NotebookEdit call:
 
@@ -43,12 +43,12 @@ herdr >= 0.7.5.
 ## Install
 
 ```
-herdr plugin install asumaran/gotonotes
+herdr plugin install asumaran/asgotonotes
 ```
 
 The manifest's `[[build]]` runs `scripts/fetch-binary.sh`, which downloads the
 release binary matching the manifest version and falls back to `go build`
-(`GOTONOTES_BUILD_FROM_SOURCE=1` skips the download).
+(`ASGOTONOTES_BUILD_FROM_SOURCE=1` skips the download).
 
 Bind a key to the `open` action in `~/.config/herdr/config.toml`:
 
@@ -56,8 +56,8 @@ Bind a key to the `open` action in `~/.config/herdr/config.toml`:
 [[keys.command]]
 key = ["prefix+i", "ctrl+alt+i"]
 type = "plugin_action"
-command = "asumaran.gotonotes.open"
-description = "gotonotes (Claude's notes per worktree)"
+command = "asumaran.asgotonotes.open"
+description = "asgotonotes (Claude's notes per worktree)"
 ```
 
 ## Usage
@@ -117,7 +117,7 @@ look like notes but are not about a ticket. They are still listed with
 
 ## Behavior notes
 
-- gotonotes is read-only. It never edits, deletes or commits anything, and
+- asgotonotes is read-only. It never edits, deletes or commits anything, and
   the only thing it runs besides git is `zed -n <files...>`, after the popup
   closes.
 - Tracked or untracked is answered with one `git ls-files` call per worktree,
@@ -133,17 +133,17 @@ look like notes but are not about a ticket. They are still listed with
 ## Development
 
 ```bash
-go build -o gotonotes .   # local build (plugin runs ./gotonotes from the repo root)
-./gotonotes -dump         # print the worktrees and their notes (no TTY)
-./gotonotes -dump -all    # every indexed file instead of notes only
-./gotonotes -dump -query eshop   # filtered worktrees with their scores
+go build -o asgotonotes .   # local build (plugin runs ./asgotonotes from the repo root)
+./asgotonotes -dump         # print the worktrees and their notes (no TTY)
+./asgotonotes -dump -all    # every indexed file instead of notes only
+./asgotonotes -dump -query eshop   # filtered worktrees with their scores
 go vet ./... && go test ./...
-scripts/pty-check.py ./gotonotes   # end-to-end TUI check on a pty (python3 + pyte)
-herdr plugin link ~/Developer/gotonotes   # register the working copy (no build step)
+scripts/pty-check.py ./asgotonotes   # end-to-end TUI check on a pty (python3 + pyte)
+herdr plugin link ~/Developer/asgotonotes   # register the working copy (no build step)
 ```
 
-`GOTONOTES_OPENER` replaces the `zed` binary (the pty check points it at a
-logging stub). `GOTONOTES_POPUP_WIDTH` / `GOTONOTES_POPUP_HEIGHT` override the
+`ASGOTONOTES_OPENER` replaces the `zed` binary (the pty check points it at a
+logging stub). `ASGOTONOTES_POPUP_WIDTH` / `ASGOTONOTES_POPUP_HEIGHT` override the
 popup size from the manifest.
 
 ## Releasing
@@ -151,4 +151,4 @@ popup size from the manifest.
 `scripts/release.sh <X.Y.Z>` gates on a clean tree + green vet/build/test,
 generates the CHANGELOG entry from commit subjects, syncs the manifest
 version, commits, tags and publishes the GitHub release; CI then attaches
-`gotonotes-darwin-arm64`, the asset `fetch-binary.sh` downloads on installs.
+`asgotonotes-darwin-arm64`, the asset `fetch-binary.sh` downloads on installs.

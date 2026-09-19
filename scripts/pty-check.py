@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""End-to-end TUI check for gotonotes without a real terminal.
+"""End-to-end TUI check for asgotonotes without a real terminal.
 
 Spawns the binary on a pty, answers the terminal queries bubbletea sends
 (OSC 10/11, CSI 6n, DA1), replays keystrokes, and asserts on frames rendered
 with pyte. Everything runs in a throwaway sandbox: a fake HOME, a synthetic
 index (CLAUDE_FILES_INDEX), a real git worktree with tracked and untracked
-files, and a logging stub instead of Zed (GOTONOTES_OPENER). It never reads
+files, and a logging stub instead of Zed (ASGOTONOTES_OPENER). It never reads
 the real index and never opens an editor.
 
-Usage: scripts/pty-check.py ./gotonotes [dark|light]   (needs python3 + pyte)
+Usage: scripts/pty-check.py ./asgotonotes [dark|light]   (needs python3 + pyte)
 """
 import atexit, fcntl, os, pty, select, shutil, signal, struct, subprocess, sys, tempfile, termios, time
 import pyte
@@ -16,7 +16,7 @@ import pyte
 BIN = os.path.abspath(sys.argv[1])
 BG = sys.argv[2] if len(sys.argv) > 2 else "dark"
 ROWS, COLS = 22, 150  # the frame takes up to 8 lines; the fullest list here has 9 rows
-SANDBOX = os.path.realpath(tempfile.mkdtemp(prefix="gotonotes-pty-"))
+SANDBOX = os.path.realpath(tempfile.mkdtemp(prefix="asgotonotes-pty-"))
 
 # ---------- sandbox: fake home, git worktree, synthetic index ----------
 home = os.path.join(SANDBOX, "home")
@@ -94,7 +94,7 @@ class Session:
     """One run of the binary on a pty."""
     def __init__(self):
         env = dict(os.environ, TERM="xterm-256color", COLORTERM="truecolor", HOME=home,
-                   CLAUDE_FILES_INDEX=index, GOTONOTES_OPENER=opener,
+                   CLAUDE_FILES_INDEX=index, ASGOTONOTES_OPENER=opener,
                    GIT_CONFIG_GLOBAL="/dev/null", GIT_CONFIG_SYSTEM="/dev/null")
         for k in ("HERDR_ENV", "HERDR_PLUGIN_STATE_DIR", "XDG_CONFIG_HOME"): env.pop(k, None)   # the state dir stays under the fake HOME
         self.master, slave = pty.openpty()
@@ -148,7 +148,7 @@ class Session:
     def start(self):
         for _ in range(50):
             self.pump(0.1)
-            if "gotonotes (dev) ❯" in "\n".join(self.frame()): break
+            if "asgotonotes (dev) ❯" in "\n".join(self.frame()): break
         self.pump(0.5)
         return self.frame()
 
@@ -186,18 +186,18 @@ def dump(title, f):
 
 CTRL_A, CTRL_O, ESC, ENTER, TAB, DOWN, UP = b"\x01", b"\x0f", b"\x1b", b"\r", b"\t", b"\x1b[B", b"\x1b[A"
 
-print("== gotonotes pty driver (%s background, %dx%d) ==" % (BG, COLS, ROWS))
+print("== asgotonotes pty driver (%s background, %dx%d) ==" % (BG, COLS, ROWS))
 
 # The content checks read every column, so they run with the list at half the
 # width; run 4 goes back to the default split.
-split_file = os.path.join(home, ".config", "herdr", "gotonotes-tui", "split-columns")
+split_file = os.path.join(home, ".config", "herdr", "asgotonotes-tui", "split-columns")
 os.makedirs(os.path.dirname(split_file), exist_ok=True)
 with open(split_file, "w") as fh: fh.write("50\n")
 
 # ---------- run 1: browse, filter, multi-select, open ----------
 s = Session()
 f = s.start(); dump("view 1, notes", f)
-check(prompt(f) == "gotonotes (dev) ❯", "prompt line is clean: %r" % f[1])
+check(prompt(f) == "asgotonotes (dev) ❯", "prompt line is clean: %r" % f[1])
 check(f[0].startswith("╭") and f[-1].startswith("╰") and edge(f) == 2, "view 1: one frame, input right under the top border, no title line")
 check(b"\x1b[?1049h" in s.raw, "program entered the alt screen")
 rows = [l for l in left(f) if l.strip()]
@@ -227,7 +227,7 @@ check(len(rows) == 2 and rows[1].startswith("▌ FED-2283"), "clearing the filte
 f = s.send(UP)
 f = s.send(ENTER, 0.8); dump("view 2, notes", f)
 check(edge(f) == 4 and context(f).startswith("ESHOP-551 · ~/wt/shop/fix-ESHOP-551-structured-data · 5 notes"), "view 2 header: %r" % f[1])
-check(prompt(f) == "gotonotes (dev) ❯", "view 2 starts with an empty filter")
+check(prompt(f) == "asgotonotes (dev) ❯", "view 2 starts with an empty filter")
 rows = [l for l in left(f, 2) if l.strip()]
 check(len(rows) == 5, "5 notes listed: %d" % len(rows))
 check("untracked" in rows[0] and rows[0].endswith("HANDOFF.md"), "untracked .md is a note: %r" % rows[0])
@@ -276,7 +276,7 @@ rc = s.finish()
 tail = s.raw.decode("utf-8", "replace")
 check(rc == 0, "clean exit after ctrl+o: %r" % rc)
 check(s.opened() == ["-n", handoff, plan, plan_wt, script], "ctrl+o opens every existing note: %r" % s.opened())
-check("gotonotes: skipped 1 file(s) that no longer exist" in tail, "skipped files are reported on stderr")
+check("asgotonotes: skipped 1 file(s) that no longer exist" in tail, "skipped files are reported on stderr")
 
 # ---------- run 3: q quits, nothing is opened ----------
 s = Session()

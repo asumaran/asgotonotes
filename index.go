@@ -46,7 +46,7 @@ func stateDir() string {
 	if base == "" {
 		base = filepath.Join(homeDir(), ".config")
 	}
-	return filepath.Join(base, "herdr", "gotonotes-tui")
+	return filepath.Join(base, "herdr", "asgotonotes-tui")
 }
 
 // record is one index line.

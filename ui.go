@@ -4,7 +4,7 @@ package main
 // filter input, the list next to the preview, and the help, in two views. View 1 lists the worktree
 // groups and previews the files of the one under the cursor; view 2 lists
 // the files of the chosen group and previews the one under the cursor.
-// Modeled on gotopr: the input is focused before the program starts, every
+// Modeled on asgotopr: the input is focused before the program starts, every
 // printable key filters, and the chosen files are handed to Zed AFTER the
 // TUI exits (quitting is what closes the popup).
 
@@ -210,7 +210,7 @@ func newModel(groups []*group, loadErr string) model {
 	return m
 }
 
-// newFilterInput builds the focused filter textinput with the gotonotes
+// newFilterInput builds the focused filter textinput with the asgotonotes
 // prompt. The prompt string already carries its colors, so the prompt style
 // is left empty.
 func newFilterInput() textinput.Model {
@@ -228,9 +228,9 @@ func newFilterInput() textinput.Model {
 // non-release builds.
 func promptText() string {
 	if strings.HasPrefix(version, "v") {
-		return stPrompt.Render("gotonotes ❯ ")
+		return stPrompt.Render("asgotonotes ❯ ")
 	}
-	return stPrompt.Render("gotonotes (") + stDev.Render("dev") + stPrompt.Render(") ❯ ")
+	return stPrompt.Render("asgotonotes (") + stDev.Render("dev") + stPrompt.Render(") ❯ ")
 }
 
 func (m *model) currentGroup() *group {
@@ -710,12 +710,12 @@ func (m *model) queueOpen(paths []string) tea.Cmd {
 	return tea.Quit
 }
 
-// openerPath resolves the editor CLI. GOTONOTES_OPENER replaces it (the pty
+// openerPath resolves the editor CLI. ASGOTONOTES_OPENER replaces it (the pty
 // driver points it at a logging stub). The popup may run with a shorter
 // PATH than an interactive shell, so the usual install locations of the zed
 // CLI are tried as well.
 func openerPath() (string, error) {
-	if b := os.Getenv("GOTONOTES_OPENER"); b != "" {
+	if b := os.Getenv("ASGOTONOTES_OPENER"); b != "" {
 		return b, nil
 	}
 	if p, err := exec.LookPath("zed"); err == nil {
@@ -738,18 +738,18 @@ func openerPath() (string, error) {
 // TUI exits; the only output is a one-line note about skipped files.
 func runOpen(files []string, skipped int) {
 	if skipped > 0 {
-		fmt.Fprintf(os.Stderr, "gotonotes: skipped %d file(s) that no longer exist\n", skipped)
+		fmt.Fprintf(os.Stderr, "asgotonotes: skipped %d file(s) that no longer exist\n", skipped)
 	}
 	if len(files) == 0 {
 		return
 	}
 	bin, err := openerPath()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "gotonotes:", err)
+		fmt.Fprintln(os.Stderr, "asgotonotes:", err)
 		return
 	}
 	if err := exec.Command(bin, append([]string{"-n"}, files...)...).Run(); err != nil {
-		fmt.Fprintln(os.Stderr, "gotonotes:", err)
+		fmt.Fprintln(os.Stderr, "asgotonotes:", err)
 	}
 }
 

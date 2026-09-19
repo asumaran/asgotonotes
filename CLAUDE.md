@@ -4,19 +4,19 @@ Guidance for working in this repository.
 
 ## What this is
 
-`gotonotes` is a herdr plugin popup that browses the notes Claude Code wrote
+`asgotonotes` is a herdr plugin popup that browses the notes Claude Code wrote
 (plans, handoffs, drafts, reports), grouped by worktree root (one worktree =
 one ticket, however many sessions worked on it), and opens the chosen files
 in Zed. Two views: worktree groups, then the files of the chosen group. Open,
-pick, exit: same lifecycle and look as `gotopr` and `herdr-goto`, which this
+pick, exit: same lifecycle and look as `asgotopr` and `asgoto`, which this
 repo is modeled on.
 
 It is read-only. It never edits, deletes or commits anything, uses no network
 and writes nothing except a one-line stderr note about skipped files.
 
-Distributed as a herdr plugin (`herdr plugin install asumaran/gotonotes`; the
+Distributed as a herdr plugin (`herdr plugin install asumaran/asgotonotes`; the
 manifest's `[[build]]` runs `scripts/fetch-binary.sh`). Each GitHub Release
-attaches `gotonotes-darwin-arm64`. There is no published library.
+attaches `asgotonotes-darwin-arm64`. There is no published library.
 
 ## Data source
 
@@ -59,7 +59,7 @@ Files are split by concern:
   `listY`, `frameRows`, each with or without the optional context line).
 - `split.go` — the divider between the list and the preview: `loadSplit`,
   `saveSplit`, `stepSplit`, `splitWidths`. The file is copied, not imported:
-  the same one ships in gotochanged, gotosession, gotopr and gotojira (all
+  the same one ships in asgotochanged, asgotosession, asgotopr and asgotoissues (all
   under github.com/asumaran), and there is no shared library. A pull request
   only needs to change it here; the maintainer ports the change to the other
   copies.
@@ -72,16 +72,16 @@ Files are split by concern:
 ## Build & run
 
 ```bash
-go build -o gotonotes .    # plugin runs ./gotonotes from the repo root
-./gotonotes -dump          # groups + notes as the popup would list them, no TTY
-./gotonotes -dump -all     # every indexed file
-./gotonotes -dump -query x # filtered groups with scores
+go build -o asgotonotes .    # plugin runs ./asgotonotes from the repo root
+./asgotonotes -dump          # groups + notes as the popup would list them, no TTY
+./asgotonotes -dump -all     # every indexed file
+./asgotonotes -dump -query x # filtered groups with scores
 go vet ./... && go test ./...
-herdr plugin link ~/Developer/gotonotes   # link does NOT run [[build]]; go build yourself
+herdr plugin link ~/Developer/asgotonotes   # link does NOT run [[build]]; go build yourself
 ```
 
 Keybinding (user config): `prefix+i` / `ctrl+alt+i` → `plugin_action`
-`asumaran.gotonotes.open` → `scripts/open-pane.sh` → `herdr plugin pane open`.
+`asumaran.asgotonotes.open` → `scripts/open-pane.sh` → `herdr plugin pane open`.
 
 ## Behaviour / decisions
 
@@ -145,7 +145,7 @@ Keybinding (user config): `prefix+i` / `ctrl+alt+i` → `plugin_action`
   instead of quitting. Enter opens the multi-selection in list order (even
   rows the filter currently hides), else the cursor file; `ctrl+o` opens the
   rows currently listed. `openerPath` also tries the usual zed locations since
-  the popup may run with a shorter PATH; `GOTONOTES_OPENER` replaces it.
+  the popup may run with a shorter PATH; `ASGOTONOTES_OPENER` replaces it.
 - **Preview**: view 1 is synchronous (the group's file rows). View 2 reads at
   most 512 KB / 200 lines off the update loop, caches per (path, width,
   mtime, style), shows `(binary file)` on NUL bytes. A leading YAML
@@ -170,12 +170,12 @@ Unit tests cover the pure logic with fixtures and no git: index parsing,
 grouping, labels, statuses, the note rule, ages, `ls-files` output parsing,
 filtering, preview rendering, view transitions, multi-select and opening.
 
-For end-to-end verification without a TTY, `scripts/pty-check.py ./gotonotes
+For end-to-end verification without a TTY, `scripts/pty-check.py ./asgotonotes
 [dark|light]` (python3 + `pyte`) spawns the binary on a pty, answers the OSC
 10/11 + CSI 6n + DA1 queries, replays keystrokes and asserts on pyte-rendered
 frames. It runs in a throwaway sandbox (fake `HOME`, synthetic index via
 `CLAUDE_FILES_INDEX`, a real git worktree with tracked/untracked files, a
-logging stub as `GOTONOTES_OPENER`), so it never reads the real index and
+logging stub as `ASGOTONOTES_OPENER`), so it never reads the real index and
 never launches Zed.
 
 ## Commits & branches
@@ -192,5 +192,5 @@ never launches Zed.
 `scripts/release.sh <X.Y.Z>` — clean-tree + vet/build/test gate, CHANGELOG
 generation from commit subjects, manifest version sync, commit + tag + GitHub
 release; CI (`.github/workflows/release.yml`) attaches
-`gotonotes-darwin-arm64`. Releasing never touches the linked plugin's
-`./gotonotes`; rebuild locally to keep testing dev code.
+`asgotonotes-darwin-arm64`. Releasing never touches the linked plugin's
+`./asgotonotes`; rebuild locally to keep testing dev code.

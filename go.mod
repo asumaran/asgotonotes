@@ -1,4 +1,4 @@
-module github.com/asumaran/gotonotes
+module github.com/asumaran/asgotonotes
 
 go 1.25.8
 
