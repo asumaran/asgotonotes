@@ -10,13 +10,17 @@ Sibling of [gotopr](https://github.com/asumaran/gotopr) and
 popup, same fuzzy search.
 
 ```
-gotonotes ❯
-▌ ESHOP-2707           monorepo-front     2 notes   2h │ untracked 17/09 17:18  ~/wt/…/PLAN.md
-  ESHOP-2561           monorepo-front     5 notes  13h │ untracked 17/09 17:12  ~/wt/…/HANDOFF.md
-  ESHOP-551            monorepo-front    20 notes  15h │
-  FED-2283             synapse           29 notes   4w │
-  dotfiles-bash/main   dotfiles-bash      5 notes   1m │
-type filter • enter files • ^a all files • ⇧↓ scroll preview • esc/q quit
+╭─────────────────────────────────────────────────────────────────────────────────────── 5/5 ─╮
+│ gotonotes ❯                                                                                 │
+├─────────────────────────────────────────────────┬───────────────────────────────────────────┤
+│▌ ESHOP-2707         monorepo-front   2 notes  2h│ untracked 17/09 17:18  ~/wt/…/PLAN.md     │
+│  ESHOP-2561         monorepo-front   5 notes 13h│ untracked 17/09 17:12  ~/wt/…/HANDOFF.md  │
+│  ESHOP-551          monorepo-front  20 notes 15h│                                           │
+│  FED-2283           synapse         29 notes  4w│                                           │
+│  dotfiles-bash/main dotfiles-bash    5 notes  1m│                                           │
+├─────────────────────────────────────────────────┴───────────────────────────────────────────┤
+│ type filter • enter files • ^a all files • ⇧↓ scroll preview • esc/q quit                   │
+╰─────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
 ## Requirements

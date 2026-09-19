@@ -54,6 +54,9 @@ Files are split by concern:
 - `git.go` — `trackedFiles` (the one-call-per-group lookup), `parseLsFiles`,
   `resolveStatuses` (groups in parallel).
 - `filter.go` — fuzzy rows for both views, `bestIndex`, `highlight`.
+- `frame.go` — the single-frame layout shared by the family: `hline`, `fit`,
+  `framed`, `frameHead`, `splitMain`, `scrollPos` and the section rows (`mainY`,
+  `listY`, `frameRows`, each with or without the optional context line).
 - `ui.go` — the bubbletea model/Update/View, the two views, multi-select,
   opening, mouse, styles, `pathCells`.
 - `preview.go` — file preview as a `tea.Cmd` (glamour for markdown, plain text
@@ -76,6 +79,17 @@ Keybinding (user config): `prefix+i` / `ctrl+alt+i` → `plugin_action`
 
 ## Behaviour / decisions
 
+- **Layout**: one rounded frame of sections split by shared edges, the layout
+  asgitlog introduced and every picker of the family follows (`frame.go`, the
+  same file in each repo): the filter input (the border over it carries the
+  matches/total counter), the main section (list and preview split by a
+  divider; its bottom edge carries the preview's scroll position), and the
+  help. A context line on top is only for what the rest of the screen cannot
+  say; a title is not context. View 1 has none; view 2 has one, the group
+  being browsed, so `listY`, `mainY` and `frameRows` take `hasContext()` and
+  the two views differ by two lines. The list starts on screen row `listY`,
+  one cell in from the left side, which is what the click-to-row math uses.
+  Errors and notices take the help line.
 - **Group label**: first `[A-Za-z]{2,}-[0-9]+` match in `branch + " " +
   basename(root)`, uppercased; else `repo/branch`; else the root with `~`.
   Repo and branch come from the newest index line that has them (a main clone
@@ -104,8 +118,8 @@ Keybinding (user config): `prefix+i` / `ctrl+alt+i` → `plugin_action`
   the cursor stays on the row it was on (`refilter`).
 - **Views**: enter stashes the view 1 query and opens view 2 with an empty
   one; esc restores the query and puts the cursor back on the same group.
-  View 2 has an extra header line, so `listTop()` feeds both `bodyH` and the
-  click-to-row math.
+  The group header of view 2 is the frame's context line; view 1 has none, so
+  `listY` and `bodyH` depend on the view (`hasContext()`).
 - **Keys vs. filter**: every printable key filters, so `q` quits only while
   the filter is empty, and `space` marks in view 2 instead of typing. `ctrl+a`
   is intercepted before the textinput (which would treat it as line-start).

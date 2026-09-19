@@ -231,9 +231,10 @@ func TestViewsRenderFixedColumns(t *testing.T) {
 
 	m, _ = press(t, m, keyEnter)
 	view = ansi.Strip(m.View().Content)
-	first := strings.SplitN(view, "\n", 2)[0]
-	if !strings.HasPrefix(first, "ESHOP-551 · ~/wt/shop/fix-ESHOP-551 · 2 notes") {
-		t.Errorf("view 2 header = %q", first)
+	// The group header of view 2 lives on the frame's context line.
+	context := strings.Split(view, "\n")[1]
+	if !strings.HasPrefix(context, "│ ESHOP-551 · ~/wt/shop/fix-ESHOP-551 · 2 notes") {
+		t.Errorf("view 2 context line = %q", context)
 	}
 	if h := strings.Count(view, "\n") + 1; h != m.height {
 		t.Errorf("view 2 is %d lines tall, want %d", h, m.height)
@@ -253,14 +254,17 @@ func TestPathCellsKeepsTheFileName(t *testing.T) {
 
 func TestClickMovesTheCursorOnly(t *testing.T) {
 	m, _ := uiFixture(t)
-	res, _ := m.Update(tea.MouseClickMsg{X: 3, Y: 2, Button: tea.MouseLeft}) // second row
+	res, _ := m.Update(tea.MouseClickMsg{X: 3, Y: listY(false) + 1, Button: tea.MouseLeft}) // second row
 	got := res.(model)
 	if got.gCursor != 1 || got.view != viewGroups {
 		t.Errorf("click must select the row without entering it: cursor=%d view=%v", got.gCursor, got.view)
 	}
-	res, _ = got.Update(tea.MouseClickMsg{X: got.listW() + 10, Y: 1, Button: tea.MouseLeft})
-	if res.(model).gCursor != 1 {
-		t.Error("a click on the preview column changes nothing")
+	// The preview, the divider and the frame's own lines select nothing.
+	for _, c := range [][2]int{{got.listW() + 10, listY(false)}, {got.listW() + 1, listY(false)}, {0, listY(false)}, {3, mainY(false)}, {3, 1}} {
+		res, _ = got.Update(tea.MouseClickMsg{X: c[0], Y: c[1], Button: tea.MouseLeft})
+		if res.(model).gCursor != 1 {
+			t.Errorf("a click at %v must change nothing", c)
+		}
 	}
 }
 
@@ -281,5 +285,41 @@ func TestMissingIndexShowsTheReason(t *testing.T) {
 	}
 	if _, cmd := press(t, m, keyEnter); isQuit(cmd) {
 		t.Error("enter on an empty list does nothing")
+	}
+}
+
+// TestFrameGeometry pins the single-frame layout in both views: exactly
+// height lines, each exactly width cells, sections where the click math
+// expects them.
+func TestFrameGeometry(t *testing.T) {
+	m, _ := uiFixture(t)
+	check := func(m model, name string) {
+		lines := strings.Split(m.View().Content, "\n")
+		if len(lines) != m.height {
+			t.Errorf("%s: %d lines, want %d", name, len(lines), m.height)
+		}
+		for i, l := range lines {
+			if w := ansi.StringWidth(l); w != m.width {
+				t.Errorf("%s: line %d is %d cells, want %d: %q", name, i, w, m.width, ansi.Strip(l))
+			}
+		}
+		plain := strings.Split(ansi.Strip(m.View().Content), "\n")
+		if !strings.HasPrefix(plain[0], "╭") || !strings.HasPrefix(plain[len(plain)-1], "╰") ||
+			!strings.Contains(plain[mainY(m.hasContext())], "┬") || !strings.HasPrefix(plain[listY(m.hasContext())], "│▌") {
+			t.Errorf("%s: frame sections misplaced:\n%s", name, strings.Join(plain, "\n"))
+		}
+	}
+	check(m, "view 1")
+	// View 1 has no context line: the input sits right under the top border.
+	if top := strings.Split(ansi.Strip(m.View().Content), "\n"); !strings.Contains(top[0], "2/2") || !strings.HasPrefix(top[1], "│ gotonotes") {
+		t.Errorf("view 1 head:\n%s\n%s", top[0], top[1])
+	}
+	if c := ansi.Strip(m.counter()); c != "2/2" {
+		t.Errorf("view 1 counter = %q", c)
+	}
+	m, _ = press(t, m, keyEnter)
+	check(m, "view 2")
+	if c := ansi.Strip(m.counter()); c != "2/2" {
+		t.Errorf("view 2 counter = %q", c)
 	}
 }

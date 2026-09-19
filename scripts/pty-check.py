@@ -10,12 +10,12 @@ the real index and never opens an editor.
 
 Usage: scripts/pty-check.py ./gotonotes [dark|light]   (needs python3 + pyte)
 """
-import atexit, fcntl, os, pty, select, shutil, struct, subprocess, sys, tempfile, termios, time
+import atexit, fcntl, os, pty, select, shutil, signal, struct, subprocess, sys, tempfile, termios, time
 import pyte
 
 BIN = os.path.abspath(sys.argv[1])
 BG = sys.argv[2] if len(sys.argv) > 2 else "dark"
-ROWS, COLS = 16, 150
+ROWS, COLS = 22, 150  # the frame takes up to 8 lines; the fullest list here has 9 rows
 SANDBOX = os.path.realpath(tempfile.mkdtemp(prefix="gotonotes-pty-"))
 
 # ---------- sandbox: fake home, git worktree, synthetic index ----------
@@ -132,14 +132,23 @@ class Session:
     def frame(self):
         return [line.rstrip() for line in self.screen.display]
 
+    def repaint(self):
+        # The v2 renderer updates the screen with scroll regions and SU, which
+        # pyte ignores; a resize forces a full redraw it can follow.
+        for cols in (COLS - 1, COLS):
+            fcntl.ioctl(self.master, termios.TIOCSWINSZ, struct.pack("HHHH", ROWS, cols, 0, 0))
+            self.screen.resize(ROWS, cols)
+            if self.proc.poll() is None: os.kill(self.proc.pid, signal.SIGWINCH)
+            self.pump(0.3)
+
     def send(self, b, wait=0.4):
-        os.write(self.master, b); self.pump(wait)
+        os.write(self.master, b); self.pump(wait); self.repaint()
         return self.frame()
 
     def start(self):
         for _ in range(50):
             self.pump(0.1)
-            if "gotonotes (dev) ❯" in self.frame()[0]: break
+            if "gotonotes (dev) ❯" in "\n".join(self.frame()): break
         self.pump(0.5)
         return self.frame()
 
@@ -156,9 +165,19 @@ class Session:
         if not os.path.exists(opener_log): return []
         return open(opener_log).read().splitlines()
 
-def listw(): return max((COLS - 3) // 2, 20)
-def left(f, top=1):  return [l[:listw()].rstrip() for l in f[top:-1]]
-def right(f, top=1): return [l[listw() + 3:].rstrip() for l in f[top:-1]]
+# One frame (see frame.go): top border, input, main edge, list | preview,
+# bottom edge, help, border. View 2 adds a context line (the group header) and
+# its edge on top, so everything below sits two lines lower there; the main
+# edge is found by its divider joint.
+INNER = COLS - 2
+def listw(): return INNER - 1 - INNER // 2
+def edge(f):  return next(i for i, l in enumerate(f) if l.startswith("├") and "┬" in l)
+def main(f):  return f[edge(f) + 1:-3]
+def left(f, top=1):  return [l[1:1 + listw()].rstrip() for l in main(f)]
+def right(f, top=1): return [l[listw() + 3:-1].rstrip() for l in main(f)]
+def prompt(f):   return f[edge(f) - 1].strip("│ ").rstrip()
+def context(f):  return f[1].strip("│").strip() if edge(f) == 4 else ""
+def helpline(f): return f[-2]
 def dump(title, f):
     print("--- %s ---" % title)
     for i, l in enumerate(f): print("%2d|%s" % (i, l))
@@ -170,7 +189,8 @@ print("== gotonotes pty driver (%s background, %dx%d) ==" % (BG, COLS, ROWS))
 # ---------- run 1: browse, filter, multi-select, open ----------
 s = Session()
 f = s.start(); dump("view 1, notes", f)
-check(f[0].strip() == "gotonotes (dev) ❯", "prompt line is clean: %r" % f[0])
+check(prompt(f) == "gotonotes (dev) ❯", "prompt line is clean: %r" % f[1])
+check(f[0].startswith("╭") and f[-1].startswith("╰") and edge(f) == 2, "view 1: one frame, input right under the top border, no title line")
 check(b"\x1b[?1049h" in s.raw, "program entered the alt screen")
 rows = [l for l in left(f) if l.strip()]
 check(len(rows) == 2, "notes mode lists 2 groups (tool/main has only code and a memory file): %d" % len(rows))
@@ -198,8 +218,8 @@ rows = [l for l in left(f) if l.strip()]
 check(len(rows) == 2 and rows[1].startswith("▌ FED-2283"), "clearing the filter keeps the cursor on the group")
 f = s.send(UP)
 f = s.send(ENTER, 0.8); dump("view 2, notes", f)
-check(f[0].startswith("ESHOP-551 · ~/wt/shop/fix-ESHOP-551-structured-data · 5 notes"), "view 2 header: %r" % f[0])
-check(f[1].strip() == "gotonotes (dev) ❯", "view 2 starts with an empty filter")
+check(edge(f) == 4 and context(f).startswith("ESHOP-551 · ~/wt/shop/fix-ESHOP-551-structured-data · 5 notes"), "view 2 header: %r" % f[1])
+check(prompt(f) == "gotonotes (dev) ❯", "view 2 starts with an empty filter")
 rows = [l for l in left(f, 2) if l.strip()]
 check(len(rows) == 5, "5 notes listed: %d" % len(rows))
 check("untracked" in rows[0] and rows[0].endswith("HANDOFF.md"), "untracked .md is a note: %r" % rows[0])
@@ -212,7 +232,7 @@ check("Handoff" in pv and "**bold**" not in pv and "bold handoff text" in pv, "m
 
 f = s.send(CTRL_A, 0.8); dump("view 2, all files", f)
 rows = [l for l in left(f, 2) if l.strip()]
-check(len(rows) == 9 and "9 files" in f[0], "ctrl+a lists all 9 files")
+check(len(rows) == 9 and "9 files" in context(f), "ctrl+a lists all 9 files")
 check(any(l.endswith("memory/MEMORY.md") for l in rows), "the memory file is listed in all-files mode")
 tracked = [l for l in rows if l.split()[0] == "tracked"]
 check(len(tracked) == 2 and any("[id].tsx" in l for l in tracked),
@@ -223,11 +243,11 @@ f = s.send(CTRL_A, 0.6)
 f = s.send(DOWN * 4, 0.6); dump("cursor on the gone file", f)
 check(any("gone: ~/.claude/harness/eshop-551/brief-2385.md" in l for l in right(f, 2)), "gone file preview says so")
 f = s.send(ENTER)
-check(s.proc.poll() is None and "no longer exists" in f[-1], "enter on a gone file stays open with a notice: %r" % f[-1])
+check(s.proc.poll() is None and "no longer exists" in helpline(f), "enter on a gone file stays open with a notice: %r" % helpline(f))
 
 f = s.send(UP * 4)
 f = s.send(TAB + TAB); dump("two files marked", f)
-check("2 selected" in f[0] and sum("●" in l for l in left(f, 2)) == 2, "tab marks files and moves down")
+check("2 selected" in context(f) and sum("●" in l for l in left(f, 2)) == 2, "tab marks files and moves down")
 s.send(ENTER, 0.2)
 rc = s.finish()
 check(rc == 0, "clean exit after enter: %r" % rc)
@@ -238,7 +258,7 @@ check(b"\x1b[?1049l" in s.raw, "program left the alt screen")
 s = Session()
 s.start()
 f = s.send(DOWN + ENTER, 0.6)
-check(f[0].startswith("FED-2283 · ~/wt/fed-2283-tables · 1 note"), "second group opens: %r" % f[0])
+check(context(f).startswith("FED-2283 · ~/wt/fed-2283-tables · 1 note"), "second group opens: %r" % f[1])
 f = s.send(ESC); dump("back in view 1", f)
 rows = [l for l in left(f) if l.strip()]
 check(s.proc.poll() is None and rows[1].startswith("▌ FED-2283"), "esc goes back and keeps the cursor on the group")

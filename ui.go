@@ -1,7 +1,7 @@
 package main
 
-// The bubbletea model: a filter input on top, a two-column body (list left,
-// preview right) and a help footer, in two views. View 1 lists the worktree
+// The bubbletea model: one frame (see frame.go) holding a context line, the
+// filter input, the list next to the preview, and the help, in two views. View 1 lists the worktree
 // groups and previews the files of the one under the cursor; view 2 lists
 // the files of the chosen group and previews the one under the cursor.
 // Modeled on gotopr: the input is focused before the program starts, every
@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 
@@ -59,6 +60,7 @@ var (
 	stRepo   = lipgloss.NewStyle().Foreground(lipgloss.Color("12"))
 	stError  = lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Bold(true)
 	stMark   = lipgloss.NewStyle().Foreground(lipgloss.Color("13")).Bold(true)
+	stCount  = lipgloss.NewStyle().Foreground(lipgloss.Color("3"))
 
 	// file statuses
 	stGone      = lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
@@ -241,45 +243,31 @@ func (m *model) currentFile() *noteFile {
 
 // ---- layout ----
 
-func (m *model) listW() int {
-	w := (m.width - 3) / 2
-	if w < 20 {
-		w = 20
-	}
-	return w
-}
+// innerW is the width inside the frame's sides.
+func (m *model) innerW() int { return max(20, m.width-2) }
 
-func (m *model) prevW() int {
-	w := m.width - m.listW() - 3
-	if w < 10 {
-		w = 10
-	}
-	return w
-}
+// detailsW is the preview's share of the main section, including the cell of
+// padding on each side; prevW is the text width inside it.
+func (m *model) detailsW() int { return max(12, m.innerW()/2) }
+func (m *model) prevW() int    { return max(10, m.detailsW()-2) }
 
-// listTop is the screen row where the list starts: below the input, and in
-// view 2 also below the group header.
-func (m *model) listTop() int {
-	if m.view == viewFiles {
-		return 2
-	}
-	return 1
-}
+// listW is what the divider leaves for the list.
+func (m *model) listW() int { return max(10, m.innerW()-1-m.detailsW()) }
 
-func (m *model) bodyH() int {
-	h := m.height - m.listTop() - 1 // footer
-	if h < 1 {
-		h = 1
-	}
-	return h
-}
+// hasContext reports whether the frame carries its context line: only view 2
+// does (the group header), so the two views differ by two lines.
+func (m *model) hasContext() bool { return m.view == viewFiles }
+
+// bodyH is the height of the main section: everything but the frame's own
+// lines and the help.
+func (m *model) bodyH() int { return max(1, m.height-frameRows(m.hasContext())-1) }
 
 func (m *model) resize() {
 	m.listVP.SetWidth(m.listW())
 	m.listVP.SetHeight(m.bodyH())
 	m.prevVP.SetWidth(m.prevW())
 	m.prevVP.SetHeight(m.bodyH())
-	m.help.SetWidth(m.width)
+	m.help.SetWidth(max(0, m.width-4))
 }
 
 // ---- filtering ----
@@ -876,10 +864,11 @@ func (m model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 // handleClick moves the cursor to the row under a left click on the list. It
 // never opens anything: that stays on enter.
 func (m model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
-	if msg.Button != tea.MouseLeft || msg.X >= m.listW()+2 || msg.Y < m.listTop() {
+	if msg.Button != tea.MouseLeft || msg.X < 1 || msg.X > m.listW() ||
+		msg.Y < listY(m.hasContext()) || msg.Y >= listY(m.hasContext())+m.bodyH() {
 		return m, nil
 	}
-	i := msg.Y - m.listTop() + m.listVP.YOffset()
+	i := msg.Y - listY(m.hasContext()) + m.listVP.YOffset()
 	if i < 0 || i >= m.rowCount() || i == m.cursor() {
 		return m, nil
 	}
@@ -889,16 +878,51 @@ func (m model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() tea.View {
-	sep := stDim.Render(strings.TrimRight(strings.Repeat("│\n", m.bodyH()), "\n"))
-	body := lipgloss.JoinHorizontal(lipgloss.Top, m.leftColumn(), " ", sep, " ", m.prevVP.View())
-	top := m.ti.View()
-	if m.view == viewFiles {
-		top = m.groupHeader() + "\n" + top
-	}
-	v := tea.NewView(top + "\n" + body + "\n" + m.footer())
+	v := tea.NewView(m.render())
 	v.AltScreen = true
 	v.MouseMode = tea.MouseModeCellMotion
 	return v
+}
+
+// render stacks the sections in one frame (see frame.go).
+func (m model) render() string {
+	w := m.width
+	out := frameHead(w, m.context(), m.counter(), m.ti.View())
+	out = append(out, splitMain(m.listLines(), strings.Split(m.prevVP.View(), "\n"),
+		m.listW(), m.detailsW(), scrollPos(&m.prevVP))...)
+	out = append(out, framed(w, m.footer()), hline(w, "╰", "╯", "", ""))
+	return strings.Join(out, "\n")
+}
+
+// context is the frame's optional top line. View 1 needs none; view 2 says
+// which group is being browsed, which nothing else on screen does.
+func (m model) context() string {
+	if m.view == viewFiles {
+		return m.groupHeader()
+	}
+	return ""
+}
+
+// counter is the matches/total count of the current view and mode.
+func (m model) counter() string {
+	total := len(visibleGroups(m.groups, m.allFiles))
+	if m.view == viewFiles {
+		total = len(m.cur.visibleFiles(m.allFiles))
+	}
+	return stCount.Render(strconv.Itoa(m.rowCount()) + "/" + strconv.Itoa(total))
+}
+
+// listLines is the list as exactly bodyH lines of listW cells.
+func (m model) listLines() []string {
+	lines := strings.Split(m.leftColumn(), "\n")
+	for len(lines) < m.bodyH() {
+		lines = append(lines, "")
+	}
+	lines = lines[:m.bodyH()]
+	for i, l := range lines {
+		lines[i] = fit(l, m.listW())
+	}
+	return lines
 }
 
 // leftColumn is the list, or the reason there is nothing to list.
@@ -916,8 +940,7 @@ func (m model) leftColumn() string {
 	default:
 		msg = "No notes (ctrl+a: all files)"
 	}
-	return lipgloss.NewStyle().Width(m.listW()).Height(m.bodyH()).
-		Render(stDim.Render(truncate(msg, m.listW())))
+	return stDim.Render(truncate(" "+msg, m.listW()))
 }
 
 // groupHeader is the first line of view 2: label · root · count.
@@ -928,13 +951,13 @@ func (m model) groupHeader() string {
 	if n := len(m.selected); n > 0 {
 		h += dot + stMark.Render(fmt.Sprintf("%d selected", n))
 	}
-	return truncate(h, m.width)
+	return h
 }
 
+// footer is the key help, or the notice while one is showing.
 func (m model) footer() string {
-	f := m.help.View(m.keys)
 	if m.notice != "" {
-		f += "  " + stError.Render(truncate(m.notice, m.width/2))
+		return stError.Render(truncate(m.notice, max(0, m.width-4)))
 	}
-	return f
+	return truncate(m.help.View(m.keys), max(0, m.width-4))
 }
