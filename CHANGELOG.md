@@ -1,3 +1,7 @@
+## v0.4.0 (2026-09-19)
+
+* refactor: rename gotonotes to asgotonotes (2de0d6b)
+
 ## v0.3.0 (2026-09-19)
 
 * feat(mouse): move the selection with the wheel over the list (e9eee8c)
