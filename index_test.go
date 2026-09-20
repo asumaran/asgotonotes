@@ -110,21 +110,6 @@ func TestGroupLabel(t *testing.T) {
 	}
 }
 
-func TestTildePath(t *testing.T) {
-	cases := map[string]string{
-		"/Users/dev":          "~",
-		"/Users/dev/a/b.md":   "~/a/b.md",
-		"/Users/developer/x":  "/Users/developer/x",
-		"/tmp/draft.md":       "/tmp/draft.md",
-		"/private/Users/dev/": "/private/Users/dev/",
-	}
-	for in, want := range cases {
-		if got := tildePath(in, testHome); got != want {
-			t.Errorf("tildePath(%q) = %q, want %q", in, got, want)
-		}
-	}
-}
-
 func TestFileStatus(t *testing.T) {
 	root := "/Users/dev/wt/shop/fix"
 	tracked := map[string]bool{root + "/README.md": true}

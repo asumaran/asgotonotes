@@ -175,20 +175,6 @@ func groupLabel(root, repo, branch, home string) string {
 	return tildePath(root, home)
 }
 
-// tildePath abbreviates the home directory prefix to ~.
-func tildePath(p, home string) string {
-	if home == "" {
-		return p
-	}
-	if p == home {
-		return "~"
-	}
-	if strings.HasPrefix(p, home+"/") {
-		return "~" + strings.TrimPrefix(p, home)
-	}
-	return p
-}
-
 // insideRoot reports whether path lives under root.
 func insideRoot(root, path string) bool {
 	return strings.HasPrefix(path, strings.TrimRight(root, "/")+"/")
