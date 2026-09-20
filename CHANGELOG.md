@@ -1,3 +1,7 @@
+## v0.10.0 (2026-09-20)
+
+* feat(keys): copy the path with ctrl+y (41ff066)
+
 ## v0.9.0 (2026-09-20)
 
 * refactor(state): share one state dir with the shell (d2349dc)
