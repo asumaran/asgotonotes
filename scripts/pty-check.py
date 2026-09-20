@@ -96,7 +96,7 @@ class Session:
         env = dict(os.environ, TERM="xterm-256color", COLORTERM="truecolor", HOME=home,
                    CLAUDE_FILES_INDEX=index, ASGOTONOTES_OPENER=opener,
                    GIT_CONFIG_GLOBAL="/dev/null", GIT_CONFIG_SYSTEM="/dev/null")
-        for k in ("HERDR_ENV", "HERDR_PLUGIN_STATE_DIR", "XDG_CONFIG_HOME"): env.pop(k, None)   # the state dir stays under the fake HOME
+        for k in ("HERDR_ENV", "HERDR_PLUGIN_STATE_DIR", "XDG_STATE_HOME", "XDG_CONFIG_HOME"): env.pop(k, None)   # the state dir stays under the fake HOME
         self.master, slave = pty.openpty()
         fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", ROWS, COLS, 0, 0))
         self.proc = subprocess.Popen([BIN], stdin=slave, stdout=slave, stderr=slave, env=env,
@@ -194,7 +194,7 @@ print("== asgotonotes pty driver (%s background, %dx%d) ==" % (BG, COLS, ROWS))
 
 # The content checks read every column, so they run with the list at half the
 # width; run 4 goes back to the default split.
-split_file = os.path.join(home, ".config", "herdr", "asgotonotes-tui", "split-columns")
+split_file = os.path.join(home, ".local", "state", "herdr", "plugins", "asumaran.asgotonotes", "split-columns")
 os.makedirs(os.path.dirname(split_file), exist_ok=True)
 with open(split_file, "w") as fh: fh.write("50\n")
 
