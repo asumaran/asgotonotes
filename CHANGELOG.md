@@ -1,3 +1,11 @@
+## v0.7.0 (2026-09-19)
+
+* feat(ui): placeholder in the filter, name only standalone (0cc6548)
+* feat(ui): page the list, jump to its ends, expand the help (a8453ff)
+* feat(filter): rank the rows while a query is on (14d6a38)
+* refactor(ui): one highlight implementation for the family (bf0e6f7)
+* fix(filter): match the query where it occurs whole (2d309a2)
+
 ## v0.6.0 (2026-09-19)
 
 * feat(ui): mark matches like asgitlog, selected row too (9689482)
