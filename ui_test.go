@@ -481,3 +481,46 @@ func TestSelectedFileRowSpansTheList(t *testing.T) {
 		t.Errorf("the selected row is %d cells wide, want the full 50", w)
 	}
 }
+
+// TestPanel: f1 lays the option and the keys over a frame that keeps its
+// size, takes every key while it is open, and esc closes it before it goes
+// back or quits. `?` is text for the filter.
+func TestPanel(t *testing.T) {
+	m, _ := uiFixture(t)
+	res, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 24})
+	m = res.(model)
+	lines := func(m model) []string { return strings.Split(ansi.Strip(m.render()), "\n") }
+	closed := lines(m)
+	if !strings.Contains(closed[len(closed)-2], "f1 options") {
+		t.Fatalf("help line = %q", closed[len(closed)-2])
+	}
+	list := m.listVP.Height()
+	m, _ = press(t, m, tea.KeyPressMsg{Code: tea.KeyF1})
+	open := lines(m)
+	all := strings.Join(open, "\n")
+	if len(open) != len(closed) || m.listVP.Height() != list {
+		t.Fatalf("the panel changed the frame: %d -> %d lines, list %d -> %d", len(closed), len(open), list, m.listVP.Height())
+	}
+	for _, want := range []string{"╭─ options ", "▌ Files", "‹notes only›", "all files", "^a", "Keys", "pgup/pgdn", "esc close"} {
+		if !strings.Contains(all, want) {
+			t.Errorf("the panel lacks %q:\n%s", want, all)
+		}
+	}
+	for i, l := range open {
+		if ansi.StringWidth(l) != 120 {
+			t.Errorf("line %d is %d cells wide, want 120", i, ansi.StringWidth(l))
+		}
+	}
+	m, _ = press(t, m, tea.KeyPressMsg{Code: 'z', Text: "z"}, tea.KeyPressMsg{Code: tea.KeySpace, Text: " "})
+	if m.ti.Value() != "" || !m.allFiles || len(m.gRows) != 3 {
+		t.Errorf("space lists all files and nothing reaches the filter: %q all=%v groups=%d", m.ti.Value(), m.allFiles, len(m.gRows))
+	}
+	m, cmd := press(t, m, tea.KeyPressMsg{Code: tea.KeyEscape})
+	if m.panel.open || cmd != nil {
+		t.Errorf("esc closes the panel and nothing else: open=%v cmd=%v", m.panel.open, cmd)
+	}
+	m, _ = press(t, m, typed("x?")...)
+	if m.panel.open || m.ti.Value() != "x?" {
+		t.Errorf("filter = %q, panel open = %v, want ? typed as text", m.ti.Value(), m.panel.open)
+	}
+}

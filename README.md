@@ -18,7 +18,7 @@ popup, same fuzzy search.
 │  ESHOP-551   20 notes  15h│                                                                                  │
 │  FED-2283    29 notes   4w│                                                                                  │
 ├───────────────────── 4/4 ─┴──────────────────────────────────────────────────────────────────────────────────┤
-│ type filter • enter files • ^a all files • ⇧↓ scroll preview • ⇧←/⇧→ resize • esc/q quit                     │
+│ type filter • enter files • ^a all files • f1 options • esc/q quit                                           │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
@@ -102,7 +102,7 @@ root of the worktree in the worktrees view; the help line confirms it for a
 moment. `↑/↓` (or
 `ctrl+p`/`ctrl+n`) move the cursor, PgDn/PgUp move it a page, and
 `alt+↑`/`alt+↓` (or Home/End) take it to the top or the bottom of the list.
-`shift+↓`/`shift+↑` scroll the preview. `?` (while the filter is empty) or `f1` expands the help line into every key; `esc` folds it. The mouse wheel moves the cursor over the list
+`shift+↓`/`shift+↑` scroll the preview. `f1` opens a panel with the notes / all files option, to change in place, and every key; `esc` closes it. The mouse wheel moves the cursor over the list
 and scrolls the preview anywhere else. `shift+←`/`shift+→` resize
 the list; the split is remembered, and the list takes a quarter of the width
 by default. A click selects a row.

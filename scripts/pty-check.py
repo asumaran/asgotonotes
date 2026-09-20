@@ -212,6 +212,16 @@ with open(split_file, "w") as fh: fh.write("50\n")
 # ---------- run 1: browse, filter, multi-select, open ----------
 s = Session()
 f = s.start(); dump("view 1, notes", f)
+
+# The panel: f1 lays the option and the keys over the frame, takes the keys, and esc closes it.
+p = s.send(b"\x1bOP", 0.6); dump("panel", p)
+check(len(p) == len(f) and any("╭─ options " in l for l in p) and any("Keys" in l for l in p) and any("▌ Files" in l for l in p),
+      "f1 opens the panel over a frame that keeps its size")
+s.send(b"zz", 0.6); p = s.send(b"\x1b", 0.6)
+check(s.proc.poll() is None and not any("╭─ options " in l for l in p) and prompt(p) == prompt(f), "esc closes the panel, which took the keys: %r" % prompt(p))
+p = s.send(b"?", 0.6)
+check(prompt(p).endswith("?"), "? is text for the filter: %r" % prompt(p))
+f = s.send(b"\x7f", 0.6)
 check(prompt(f) == "asgotonotes ❯ Search by ticket, repo, branch…", "prompt line is clean: %r" % f[1])
 check(devmark(f), "a dev build says so on the edge over the input")
 check(f[0].startswith("╭") and f[-1].startswith("╰") and edge(f) == 2, "view 1: one frame, input right under the top border, no title line")
