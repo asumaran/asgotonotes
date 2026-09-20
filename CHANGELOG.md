@@ -1,3 +1,7 @@
+## v0.7.2 (2026-09-19)
+
+* refactor: share the home path helpers (d5eef94)
+
 ## v0.7.1 (2026-09-19)
 
 * refactor: share the last duplicated helpers (4373681)
