@@ -11,7 +11,7 @@ popup, same fuzzy search.
 
 ```
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────────── 4/4 ─╮
-│ asgotonotes ❯                                                                                                │
+│ ❯ Search by ticket, repo, branch…                                                                            │
 ├───────────────────────────┬──────────────────────────────────────────────────────────────────────────────────┤
 │▌ ESHOP-270    2 notes   2h│ untracked 17/09 17:18  ~/wt/shop/fix-ESHOP-270-ssr/PLAN.md                       │
 │  ESHOP-256    5 notes  13h│ untracked 17/09 17:12  ~/wt/shop/fix-ESHOP-270-ssr/HANDOFF.md                    │

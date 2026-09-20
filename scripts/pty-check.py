@@ -148,7 +148,7 @@ class Session:
     def start(self):
         for _ in range(50):
             self.pump(0.1)
-            if "asgotonotes (dev) ❯" in "\n".join(self.frame()): break
+            if "asgotonotes ❯" in "\n".join(self.frame()): break
         self.pump(0.5)
         return self.frame()
 
@@ -177,7 +177,11 @@ def edge(f):  return next(i for i, l in enumerate(f) if l.startswith("├") and 
 def main(f):  return f[edge(f) + 1:-3]
 def left(f, top=1):  return [l[1:divider(f)].rstrip() for l in main(f)]
 def right(f, top=1): return [l[divider(f) + 2:-1].rstrip() for l in main(f)]
-def prompt(f):   return f[edge(f) - 1].strip("│ ").rstrip()
+# The input line: the prompt and what is typed (or the placeholder). A build
+# that is not a release says "(dev)" after the counter, on the edge over the
+# input; devmark() says so.
+def prompt(f): return f[edge(f) - 1].strip("│ ").rstrip().removesuffix("(dev)").rstrip()
+def devmark(f): return any(l.rstrip("╮┤─ ").endswith("(dev)") for l in f[:4])
 def context(f):  return f[1].strip("│").strip() if edge(f) == 4 else ""
 def helpline(f): return f[-2]
 def dump(title, f):
@@ -197,7 +201,8 @@ with open(split_file, "w") as fh: fh.write("50\n")
 # ---------- run 1: browse, filter, multi-select, open ----------
 s = Session()
 f = s.start(); dump("view 1, notes", f)
-check(prompt(f) == "asgotonotes (dev) ❯", "prompt line is clean: %r" % f[1])
+check(prompt(f) == "asgotonotes ❯ Search by ticket, repo, branch…", "prompt line is clean: %r" % f[1])
+check(devmark(f), "a dev build says so after the counter, on the edge over the input")
 check(f[0].startswith("╭") and f[-1].startswith("╰") and edge(f) == 2, "view 1: one frame, input right under the top border, no title line")
 check(b"\x1b[?1049h" in s.raw, "program entered the alt screen")
 rows = [l for l in left(f) if l.strip()]
@@ -227,7 +232,7 @@ check(len(rows) == 2 and rows[1].startswith("▌ FED-2283"), "clearing the filte
 f = s.send(UP)
 f = s.send(ENTER, 0.8); dump("view 2, notes", f)
 check(edge(f) == 4 and context(f).startswith("ESHOP-551 · ~/wt/shop/fix-ESHOP-551-structured-data · 5 notes"), "view 2 header: %r" % f[1])
-check(prompt(f) == "asgotonotes (dev) ❯", "view 2 starts with an empty filter")
+check(prompt(f) == "asgotonotes ❯ Search by path or status…", "view 2 starts with an empty filter and says what it searches")
 rows = [l for l in left(f, 2) if l.strip()]
 check(len(rows) == 5, "5 notes listed: %d" % len(rows))
 check("untracked" in rows[0] and rows[0].endswith("HANDOFF.md"), "untracked .md is a note: %r" % rows[0])

@@ -50,8 +50,6 @@ func padLeft(s string, width int) string {
 // ---- styles ----
 
 var (
-	stPrompt = lipgloss.NewStyle().Foreground(lipgloss.Color("13")).Bold(true)
-	stDev    = lipgloss.NewStyle().Foreground(lipgloss.Color("208")).Bold(true)
 	stHeader = lipgloss.NewStyle().Foreground(lipgloss.Color("6")).Bold(true)
 	stDim    = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
 	stTitle  = lipgloss.NewStyle().Bold(true)
@@ -208,7 +206,7 @@ func newModel(groups []*group, loadErr string) model {
 		home:         homeDir(),
 		now:          time.Now(),
 		selected:     map[string]bool{},
-		ti:           newFilterInput(),
+		ti:           newFilterInput("asgotonotes", groupsPlaceholder),
 		listVP:       viewport.New(viewport.WithWidth(50), viewport.WithHeight(20)),
 		prevVP:       viewport.New(viewport.WithWidth(40), viewport.WithHeight(20)),
 		help:         help.New(),
@@ -224,29 +222,6 @@ func newModel(groups []*group, loadErr string) model {
 	m.renderList()
 	m.updatePreview() // view 1 previews are synchronous: the first frame is complete
 	return m
-}
-
-// newFilterInput builds the focused filter textinput with the asgotonotes
-// prompt. The prompt string already carries its colors, so the prompt style
-// is left empty.
-func newFilterInput() textinput.Model {
-	ti := textinput.New()
-	ti.Prompt = promptText()
-	st := ti.Styles()
-	st.Focused.Prompt = lipgloss.NewStyle()
-	st.Blurred.Prompt = lipgloss.NewStyle()
-	ti.SetStyles(st)
-	ti.Focus()
-	return ti
-}
-
-// promptText builds the textinput prompt, with an orange "(dev)" marker on
-// non-release builds.
-func promptText() string {
-	if strings.HasPrefix(version, "v") {
-		return stPrompt.Render("asgotonotes ❯ ")
-	}
-	return stPrompt.Render("asgotonotes (") + stDev.Render("dev") + stPrompt.Render(") ❯ ")
 }
 
 func (m *model) currentGroup() *group {
@@ -308,6 +283,7 @@ func (m *model) resize() {
 	m.prevVP.SetWidth(m.prevW())
 	m.prevVP.SetHeight(m.bodyH())
 	m.help.SetWidth(max(0, m.width-4))
+	sizeInput(&m.ti, m.width-4)
 }
 
 // resizeList moves the divider between the list and the preview by one step.
@@ -318,6 +294,12 @@ func (m *model) resizeList(grow bool) tea.Cmd {
 	m.renderList()
 	return m.updatePreview()
 }
+
+// what the filter searches in each view
+const (
+	groupsPlaceholder = "Search by ticket, repo, branch…"
+	filesPlaceholder  = "Search by path or status…"
+)
 
 // ---- filtering ----
 
@@ -382,6 +364,7 @@ func (m *model) refilter() {
 func (m *model) enterGroup(g *group) {
 	m.cur = g
 	m.view = viewFiles
+	m.ti.Placeholder = filesPlaceholder
 	m.groupQuery = m.ti.Value()
 	m.ti.SetValue("")
 	m.selected = map[string]bool{}
@@ -393,6 +376,7 @@ func (m *model) enterGroup(g *group) {
 func (m *model) backToGroups() {
 	root := m.cur.root
 	m.view = viewGroups
+	m.ti.Placeholder = groupsPlaceholder
 	m.cur = nil
 	m.fRows = nil
 	m.ti.SetValue(m.groupQuery)
@@ -906,7 +890,7 @@ func (m model) View() tea.View {
 // render stacks the sections in one frame (see frame.go).
 func (m model) render() string {
 	w := m.width
-	out := frameHead(w, m.context(), m.counter(), m.ti.View())
+	out := frameHead(w, m.context(), withDevMark(m.counter()), m.ti.View())
 	out = append(out, splitMain(m.listLines(), strings.Split(m.prevVP.View(), "\n"),
 		m.listW(), m.detailsW(), listPos(&m.listVP, nil), scrollPos(&m.prevVP))...)
 	for _, l := range m.footLines() {
