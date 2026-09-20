@@ -40,29 +40,10 @@ func filterGroups(groups []*group, q, home string) []groupRow {
 		repos[i] = g.repo
 		hidden[i] = g.branch + " " + tildePath(g.root, home)
 	}
-	hits := map[int]*groupRow{}
-	hit := func(i, score int) *groupRow {
-		r, ok := hits[i]
-		if !ok {
-			r = &groupRow{g: groups[i], score: score}
-			hits[i] = r
-		} else if score > r.score {
-			r.score = score
-		}
-		return r
-	}
-	for _, mt := range findTight(q, labels) {
-		hit(mt.Index, mt.Score).labelIdx = append([]int(nil), mt.MatchedIndexes...)
-	}
-	for _, mt := range findTight(q, repos) {
-		hit(mt.Index, mt.Score).repoIdx = append([]int(nil), mt.MatchedIndexes...)
-	}
-	for _, mt := range findTight(q, hidden) {
-		hit(mt.Index, mt.Score)
-	}
+	hits := findFields(q, labels, repos, hidden)
 	for i := range groups {
-		if r, ok := hits[i]; ok {
-			rows = append(rows, *r)
+		if h, ok := hits[i]; ok {
+			rows = append(rows, groupRow{g: groups[i], score: h.Score, labelIdx: h.Any[0], repoIdx: h.Any[1]})
 		}
 	}
 	return rank(rows, func(r groupRow) int { return r.score }, nil) // a search result: best match first
@@ -84,20 +65,10 @@ func filterFiles(files []noteFile, q, home string) []fileRow {
 		paths[i] = tildePath(f.path, home)
 		statuses[i] = f.status
 	}
-	hits := map[int]*fileRow{}
-	for _, mt := range findTight(q, paths) {
-		hits[mt.Index] = &fileRow{f: files[mt.Index], score: mt.Score, idx: append([]int(nil), mt.MatchedIndexes...)}
-	}
-	for _, mt := range findTight(q, statuses) {
-		if r, ok := hits[mt.Index]; !ok {
-			hits[mt.Index] = &fileRow{f: files[mt.Index], score: mt.Score}
-		} else if mt.Score > r.score {
-			r.score = mt.Score
-		}
-	}
+	hits := findFields(q, paths, statuses)
 	for i := range files {
-		if r, ok := hits[i]; ok {
-			rows = append(rows, *r)
+		if h, ok := hits[i]; ok {
+			rows = append(rows, fileRow{f: files[i], score: h.Score, idx: h.Any[0]})
 		}
 	}
 	return rank(rows, func(r fileRow) int { return r.score }, nil) // a search result: best match first

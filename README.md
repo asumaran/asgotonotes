@@ -61,7 +61,7 @@ description = "asgotonotes (Claude's notes per worktree)"
 
 ## Usage
 
-The filter input is focused on open, so just type. There are two views.
+The filter input is focused on open, so just type. A query of several words matches them in any order (`login fix` finds "fix login flow"), and a word starting with `'` must occur as typed instead of fuzzily (`'dex`). There are two views.
 
 ### Worktrees
 
