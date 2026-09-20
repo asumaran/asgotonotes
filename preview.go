@@ -14,7 +14,6 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
-	"charm.land/glamour/v2"
 )
 
 const (
@@ -158,27 +157,4 @@ func plainText(text string, width int) string {
 		lines[i] = truncate(l, width)
 	}
 	return strings.Join(lines, "\n")
-}
-
-// renderMarkdown renders with a fixed glamour standard style ("dark" or
-// "light"). The style is never auto-detected here: bubbletea owns the
-// terminal, so the model asks it for the background color (Init →
-// RequestBackgroundColor) and passes the answer down.
-func renderMarkdown(body string, width int, style string) (string, error) {
-	if strings.TrimSpace(body) == "" {
-		return "", nil
-	}
-	r, err := glamour.NewTermRenderer(
-		glamour.WithStandardStyle(style),
-		glamour.WithWordWrap(width),
-		glamour.WithEmoji(),
-	)
-	if err != nil {
-		return "", err
-	}
-	out, err := r.Render(body)
-	if err != nil {
-		return "", err
-	}
-	return strings.Trim(out, "\n"), nil
 }

@@ -25,28 +25,6 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-func truncate(s string, width int) string {
-	return ansi.Truncate(s, width, "…")
-}
-
-// padRight truncates s to width and pads it with spaces up to width.
-func padRight(s string, width int) string {
-	s = truncate(s, width)
-	if n := width - ansi.StringWidth(s); n > 0 {
-		s += strings.Repeat(" ", n)
-	}
-	return s
-}
-
-// padLeft right-aligns s in width.
-func padLeft(s string, width int) string {
-	s = truncate(s, width)
-	if n := width - ansi.StringWidth(s); n > 0 {
-		s = strings.Repeat(" ", n) + s
-	}
-	return s
-}
-
 // ---- styles ----
 
 var (
@@ -603,19 +581,6 @@ func (m *model) updatePreview() tea.Cmd {
 	return renderPreviewCmd(f.path, key, m.prevW(), m.previewStyle)
 }
 
-// setPreviewStyle switches the glamour style once the terminal background is
-// known. Cached renders carry the old palette, so they are dropped and the
-// current preview is rendered again.
-func (m *model) setPreviewStyle(style string) tea.Cmd {
-	if style == m.previewStyle {
-		return nil
-	}
-	m.previewStyle = style
-	m.renders = map[string]string{}
-	m.prevKey = ""
-	return m.updatePreview()
-}
-
 // ---- opening ----
 
 // chosenFiles is what enter opens: the multi-selection in list order (even
@@ -733,11 +698,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.updatePreview()
 
 	case tea.BackgroundColorMsg:
-		style := "dark"
-		if !msg.IsDark() {
-			style = "light"
-		}
-		return m, m.setPreviewStyle(style)
+		return m, m.setPreviewStyle(glamourStyle(msg))
 
 	case previewMsg:
 		if msg.style != m.previewStyle { // rendered before the style flipped
@@ -756,11 +717,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Over the list the wheel moves the selection, as in asgitlog; anywhere
 		// else it scrolls the preview.
 		if m.overList(msg.X, msg.Y) {
-			switch msg.Button {
-			case tea.MouseWheelUp:
-				return m.handleKey(tea.KeyPressMsg{Code: tea.KeyUp})
-			case tea.MouseWheelDown:
-				return m.handleKey(tea.KeyPressMsg{Code: tea.KeyDown})
+			if k, ok := wheelKey(msg); ok {
+				return m.handleKey(k)
 			}
 			return m, nil
 		}
@@ -862,7 +820,7 @@ func (m model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 // overList reports whether a screen cell is inside the list.
 func (m *model) overList(x, y int) bool {
-	return x >= 1 && x <= m.listW() && y >= listY(m.hasContext()) && y < listY(m.hasContext())+m.bodyH()
+	return inList(x, y, listY(m.hasContext()), m.listW(), m.bodyH())
 }
 
 // handleClick moves the cursor to the row under a left click on the list. It
@@ -871,8 +829,8 @@ func (m model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 	if msg.Button != tea.MouseLeft || !m.overList(msg.X, msg.Y) {
 		return m, nil
 	}
-	i := msg.Y - listY(m.hasContext()) + m.listVP.YOffset()
-	if i < 0 || i >= m.rowCount() || i == m.cursor() {
+	i, ok := rowUnder(msg.Y, listY(m.hasContext()), m.listVP.YOffset(), m.rowCount())
+	if !ok || i == m.cursor() {
 		return m, nil
 	}
 	m.setCursor(i)
