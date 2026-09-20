@@ -330,8 +330,9 @@ func TestFrameGeometry(t *testing.T) {
 	}
 	check(m, "view 1")
 	// View 1 has no context line: the input sits right under the top border.
-	if top := strings.Split(ansi.Strip(m.View().Content), "\n"); !strings.Contains(top[0], "2/2") || !strings.HasPrefix(top[1], "│ asgotonotes") {
-		t.Errorf("view 1 head:\n%s\n%s", top[0], top[1])
+	// The counter sits on the edge under the list.
+	if top := strings.Split(ansi.Strip(m.View().Content), "\n"); !strings.HasPrefix(top[1], "│ asgotonotes") || !strings.Contains(top[len(top)-3], "─ 2/2 ─┴") {
+		t.Errorf("view 1 head and counter edge:\n%s\n%s\n%s", top[0], top[1], top[len(top)-3])
 	}
 	if c := ansi.Strip(m.counter()); c != "2/2" {
 		t.Errorf("view 1 counter = %q", c)

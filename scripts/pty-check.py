@@ -178,7 +178,7 @@ def main(f):  return f[edge(f) + 1:-3]
 def left(f, top=1):  return [l[1:divider(f)].rstrip() for l in main(f)]
 def right(f, top=1): return [l[divider(f) + 2:-1].rstrip() for l in main(f)]
 # The input line: the prompt and what is typed (or the placeholder). A build
-# that is not a release says "(dev)" after the counter, on the edge over the
+# that is not a release says "(dev)" at the end of the edge over the
 # input; devmark() says so.
 def prompt(f): return f[edge(f) - 1].strip("│ ").rstrip().removesuffix("(dev)").rstrip()
 def devmark(f): return any(l.rstrip("╮┤─ ").endswith("(dev)") for l in f[:4])
@@ -202,7 +202,7 @@ with open(split_file, "w") as fh: fh.write("50\n")
 s = Session()
 f = s.start(); dump("view 1, notes", f)
 check(prompt(f) == "asgotonotes ❯ Search by ticket, repo, branch…", "prompt line is clean: %r" % f[1])
-check(devmark(f), "a dev build says so after the counter, on the edge over the input")
+check(devmark(f), "a dev build says so on the edge over the input")
 check(f[0].startswith("╭") and f[-1].startswith("╰") and edge(f) == 2, "view 1: one frame, input right under the top border, no title line")
 check(b"\x1b[?1049h" in s.raw, "program entered the alt screen")
 rows = [l for l in left(f) if l.strip()]

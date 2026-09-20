@@ -848,9 +848,9 @@ func (m model) View() tea.View {
 // render stacks the sections in one frame (see frame.go).
 func (m model) render() string {
 	w := m.width
-	out := frameHead(w, m.context(), withDevMark(m.counter()), m.ti.View())
+	out := frameHead(w, m.context(), devMark(), m.ti.View())
 	out = append(out, splitMain(m.listLines(), strings.Split(m.prevVP.View(), "\n"),
-		m.listW(), m.detailsW(), listPos(&m.listVP, nil), scrollPos(&m.prevVP))...)
+		m.listW(), m.detailsW(), m.counter(), scrollPos(&m.prevVP))...)
 	for _, l := range m.footLines() {
 		out = append(out, framed(w, l))
 	}
@@ -867,7 +867,8 @@ func (m model) context() string {
 	return ""
 }
 
-// counter is the matches/total count of the current view and mode.
+// counter is the matches/total count of the current view and mode, for the
+// edge under the list.
 func (m model) counter() string {
 	total := len(visibleGroups(m.groups, m.allFiles))
 	if m.view == viewFiles {
