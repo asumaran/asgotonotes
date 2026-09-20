@@ -205,6 +205,9 @@ Keybinding (user config): `prefix+i` / `ctrl+alt+i` → `plugin_action`
 - **Keys vs. filter**: every printable key filters, so `q` quits only while
   the filter is empty, and `space` marks in view 2 instead of typing. `ctrl+a`
   is intercepted before the textinput (which would treat it as line-start).
+  `ctrl+y` copies the absolute path under the cursor in both views (the file,
+  or the root of the worktree) and flashes `copied <~ path>` on the help line
+  (`flash.go`, `clipboard.go`); `ASGOTONOTES_CLIPBOARD` replaces the command.
 - **Paths** that do not fit lose their head, not their tail (`pathCells`), so
   the file name is always visible; the root prefix is dimmed.
 - **Opening** happens after the TUI quits (quitting closes the popup and
@@ -243,9 +246,10 @@ For end-to-end verification without a TTY, `scripts/pty-check.py ./asgotonotes
 [dark|light]` (python3 + `pyte`) spawns the binary on a pty, answers the OSC
 10/11 + CSI 6n + DA1 queries, replays keystrokes and asserts on pyte-rendered
 frames. It runs in a throwaway sandbox (fake `HOME`, synthetic index via
-`CLAUDE_FILES_INDEX`, a real git worktree with tracked/untracked files, a
-logging stub as `ASGOTONOTES_OPENER`), so it never reads the real index and
-never launches Zed.
+`CLAUDE_FILES_INDEX`, a real git worktree with tracked/untracked files,
+logging stubs as `ASGOTONOTES_OPENER` and `ASGOTONOTES_CLIPBOARD`), so it
+never reads the real index, never launches Zed and never touches the real
+clipboard.
 
 ## Commits & branches
 

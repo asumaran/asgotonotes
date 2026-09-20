@@ -66,6 +66,7 @@ type keyMap struct {
 	Mark     key.Binding
 	OpenAll  key.Binding
 	Toggle   key.Binding
+	Copy     key.Binding
 	Back     key.Binding
 	Quit     key.Binding
 	PrevUp   key.Binding
@@ -92,9 +93,9 @@ func (k keyMap) ShortHelp() []key.Binding {
 // FullHelp is what `?` expands the help into, one column per group: the
 // filter and the preview, the list, the view's actions, help and quit.
 func (k keyMap) FullHelp() [][]key.Binding {
-	actions, leave := []key.Binding{k.Files, k.Toggle}, k.Quit
+	actions, leave := []key.Binding{k.Files, k.Toggle, k.Copy}, k.Quit
 	if k.files {
-		actions, leave = []key.Binding{k.Open, k.Mark, k.OpenAll, k.Toggle}, k.Back
+		actions, leave = []key.Binding{k.Open, k.Mark, k.OpenAll, k.Toggle, k.Copy}, k.Back
 	}
 	return [][]key.Binding{
 		{k.Filter, k.PrevUp, k.Shrink},
@@ -112,6 +113,7 @@ func defaultKeys() keyMap {
 		Mark:     key.NewBinding(key.WithKeys("tab", "space", "shift+tab"), key.WithHelp("tab", "multi")),
 		OpenAll:  key.NewBinding(key.WithKeys("ctrl+o"), key.WithHelp("^o", "open all")),
 		Toggle:   key.NewBinding(key.WithKeys("ctrl+a"), key.WithHelp("^a", "all files")),
+		Copy:     key.NewBinding(key.WithKeys("ctrl+y"), key.WithHelp("^y", "copy the path")),
 		Back:     key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back")),
 		Quit:     key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc/q", "quit")),
 		PrevUp:   key.NewBinding(key.WithKeys("shift+up"), key.WithHelp("⇧↑/⇧↓", "scroll preview")),
@@ -156,6 +158,7 @@ type model struct {
 	// ui
 	view   viewKind
 	notice string // transient footer message, cleared by the next key
+	flash  flash  // confirmation on the help line (flash.go)
 	ti     textinput.Model
 	listVP viewport.Model
 	prevVP viewport.Model
@@ -216,6 +219,21 @@ func (m *model) currentFile() *noteFile {
 	return nil
 }
 
+// copyPath is what ctrl+y copies: the file under the cursor in view 2, the
+// root of the worktree under it in view 1, "" with nothing under it.
+func (m *model) copyPath() string {
+	if m.view == viewFiles {
+		if f := m.currentFile(); f != nil {
+			return f.path
+		}
+		return ""
+	}
+	if g := m.currentGroup(); g != nil {
+		return g.root
+	}
+	return ""
+}
+
 // ---- layout ----
 
 // innerW is the width inside the frame's sides.
@@ -250,6 +268,17 @@ const minBodyH = 4
 
 func (m *model) toggleHelp() tea.Cmd {
 	m.help.ShowAll = !m.help.ShowAll
+	m.resize()
+	m.renderList()
+	return m.updatePreview()
+}
+
+// reflow lays the sections out again after the help line changed height: a
+// flash folds an expanded help for as long as it shows.
+func (m *model) reflow() tea.Cmd {
+	if !m.help.ShowAll {
+		return nil
+	}
 	m.resize()
 	m.renderList()
 	return m.updatePreview()
@@ -700,6 +729,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.BackgroundColorMsg:
 		return m, m.setPreviewStyle(glamourStyle(msg))
 
+	case flashMsg:
+		return m, tea.Batch(m.flash.set(string(msg)), m.reflow())
+
+	case clearFlashMsg:
+		m.flash.clear(msg)
+		return m, m.reflow()
+
 	case previewMsg:
 		if msg.style != m.previewStyle { // rendered before the style flipped
 			return m, nil
@@ -758,6 +794,10 @@ func (m model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.toggleAll()
 		m.renderList()
 		return m, m.updatePreview()
+	case key.Matches(msg, m.keys.Copy):
+		// The flash shows the ~ form; the clipboard gets the absolute path.
+		p := m.copyPath()
+		return m, copyCmd("asgotonotes", tildePath(p, m.home), p)
 	case m.keys.Nav.matches(msg):
 		m.setCursor(m.keys.Nav.move(msg, m.cursor(), m.rowCount(), m.listVP.Height(), nil))
 		m.renderList()
@@ -922,7 +962,10 @@ func (m model) groupHeader() string {
 // footer is the key help, or the notice while one is showing.
 // footMsg is what takes the help's place while there is something to say.
 func (m model) footMsg() string {
-	if m.notice != "" {
+	switch {
+	case m.flash.text != "":
+		return m.flash.view(m.width - 4)
+	case m.notice != "":
 		return stError.Render(truncate(m.notice, max(0, m.width-4)))
 	}
 	return ""

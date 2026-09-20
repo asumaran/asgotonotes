@@ -5,8 +5,9 @@ Spawns the binary on a pty, answers the terminal queries bubbletea sends
 (OSC 10/11, CSI 6n, DA1), replays keystrokes, and asserts on frames rendered
 with pyte. Everything runs in a throwaway sandbox: a fake HOME, a synthetic
 index (CLAUDE_FILES_INDEX), a real git worktree with tracked and untracked
-files, and a logging stub instead of Zed (ASGOTONOTES_OPENER). It never reads
-the real index and never opens an editor.
+files, and logging stubs instead of Zed (ASGOTONOTES_OPENER) and the clipboard
+(ASGOTONOTES_CLIPBOARD). It never reads the real index, never opens an editor
+and never touches the real clipboard.
 
 Usage: scripts/pty-check.py ./asgotonotes [dark|light]   (needs python3 + pyte)
 """
@@ -80,6 +81,10 @@ opener_log = os.path.join(SANDBOX, "opener.log")
 opener = os.path.join(SANDBOX, "opener")
 write(opener, '#!/bin/sh\nfor a in "$@"; do printf "%%s\\n" "$a" >> "%s"; done\n' % opener_log)
 os.chmod(opener, 0o755)
+clip_log = os.path.join(SANDBOX, "clipboard.log")
+clipboard = os.path.join(SANDBOX, "clipboard")
+write(clipboard, '#!/bin/sh\ncat > "%s"\n' % clip_log)
+os.chmod(clipboard, 0o755)
 
 BGREPLY = b"\x1b]11;rgb:0000/0000/0000\x1b\\" if BG == "dark" else b"\x1b]11;rgb:ffff/ffff/ffff\x1b\\"
 FGREPLY = b"\x1b]10;rgb:ffff/ffff/ffff\x1b\\" if BG == "dark" else b"\x1b]10;rgb:0000/0000/0000\x1b\\"
@@ -94,7 +99,7 @@ class Session:
     """One run of the binary on a pty."""
     def __init__(self):
         env = dict(os.environ, TERM="xterm-256color", COLORTERM="truecolor", HOME=home,
-                   CLAUDE_FILES_INDEX=index, ASGOTONOTES_OPENER=opener,
+                   CLAUDE_FILES_INDEX=index, ASGOTONOTES_OPENER=opener, ASGOTONOTES_CLIPBOARD=clipboard,
                    GIT_CONFIG_GLOBAL="/dev/null", GIT_CONFIG_SYSTEM="/dev/null")
         for k in ("HERDR_ENV", "HERDR_PLUGIN_STATE_DIR", "XDG_STATE_HOME", "XDG_CONFIG_HOME"): env.pop(k, None)   # the state dir stays under the fake HOME
         self.master, slave = pty.openpty()
@@ -109,6 +114,7 @@ class Session:
         self.raw = bytearray()
         self.answered = 0
         if os.path.exists(opener_log): os.remove(opener_log)
+        if os.path.exists(clip_log): os.remove(clip_log)
 
     def pump(self, seconds):
         end = time.time() + seconds
@@ -165,6 +171,10 @@ class Session:
         if not os.path.exists(opener_log): return []
         return open(opener_log).read().splitlines()
 
+    def copied(self):
+        if not os.path.exists(clip_log): return ""
+        return open(clip_log).read()
+
 # One frame (see frame.go): top border, input, main edge, list | preview,
 # bottom edge, help, border. View 2 adds a context line (the group header) and
 # its edge on top, so everything below sits two lines lower there; the main
@@ -189,6 +199,7 @@ def dump(title, f):
     for i, l in enumerate(f): print("%2d|%s" % (i, l))
 
 CTRL_A, CTRL_O, ESC, ENTER, TAB, DOWN, UP = b"\x01", b"\x0f", b"\x1b", b"\r", b"\t", b"\x1b[B", b"\x1b[A"
+CTRL_Y = b"\x19"
 
 print("== asgotonotes pty driver (%s background, %dx%d) ==" % (BG, COLS, ROWS))
 
@@ -283,9 +294,18 @@ check(rc == 0, "clean exit after ctrl+o: %r" % rc)
 check(s.opened() == ["-n", handoff, plan, plan_wt, script], "ctrl+o opens every existing note: %r" % s.opened())
 check("asgotonotes: skipped 1 file(s) that no longer exist" in tail, "skipped files are reported on stderr")
 
-# ---------- run 3: q quits, nothing is opened ----------
+# ---------- run 3: ctrl+y copies the path, q quits, nothing is opened ----------
 s = Session()
 s.start()
+f = s.send(CTRL_Y); dump("view 1, ctrl+y", f)
+check(s.copied() == wt, "ctrl+y copies the absolute root of the worktree: %r" % s.copied())
+check("copied ~/wt/shop/fix-ESHOP-551-structured-data" in helpline(f), "the help line confirms the copy: %r" % helpline(f))
+check(prompt(f) == "asgotonotes ❯ Search by ticket, repo, branch…", "ctrl+y leaves the filter alone: %r" % prompt(f))
+f = s.send(ENTER, 0.8)
+f = s.send(CTRL_Y); dump("view 2, ctrl+y", f)
+check(s.copied() == handoff, "ctrl+y copies the absolute path of the file: %r" % s.copied())
+check("copied ~/wt/shop/fix-ESHOP-551-structured-data/HANDOFF.md" in helpline(f), "the help line confirms the copy: %r" % helpline(f))
+s.send(ESC, 0.6)
 s.send(b"q", 0.2)
 check(s.finish() == 0 and s.opened() == [], "q quits with an empty filter and opens nothing")
 

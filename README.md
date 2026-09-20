@@ -96,7 +96,10 @@ exist are skipped; if nothing is left to open, the popup stays up and says so.
 
 ### Both views
 
-`ctrl+a` switches between notes and every indexed file. `↑/↓` (or
+`ctrl+a` switches between notes and every indexed file. `ctrl+y` copies the
+path under the cursor to the clipboard, the file in the files view and the
+root of the worktree in the worktrees view; the help line confirms it for a
+moment. `↑/↓` (or
 `ctrl+p`/`ctrl+n`) move the cursor, PgDn/PgUp move it a page, and
 `alt+↑`/`alt+↓` (or Home/End) take it to the top or the bottom of the list.
 `shift+↓`/`shift+↑` scroll the preview. `?` (while the filter is empty) or `f1` expands the help line into every key; `esc` folds it. The mouse wheel moves the cursor over the list
@@ -143,8 +146,9 @@ scripts/pty-check.py ./asgotonotes   # end-to-end TUI check on a pty (python3 + 
 herdr plugin link "$PWD"   # register the working copy (no build step)
 ```
 
-`ASGOTONOTES_OPENER` replaces the `zed` binary (the pty check points it at a
-logging stub). `ASGOTONOTES_POPUP_WIDTH` / `ASGOTONOTES_POPUP_HEIGHT` override the
+`ASGOTONOTES_OPENER` replaces the `zed` binary and `ASGOTONOTES_CLIPBOARD`
+the clipboard command (the pty check points both at logging stubs).
+`ASGOTONOTES_POPUP_WIDTH` / `ASGOTONOTES_POPUP_HEIGHT` override the
 popup size from the manifest.
 
 ## Releasing

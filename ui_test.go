@@ -344,6 +344,61 @@ func TestFrameGeometry(t *testing.T) {
 	}
 }
 
+// TestCopyKeyCopiesThePath covers ctrl+y in both views: the absolute path of
+// the worktree (view 1) or the file (view 2) under the cursor goes to the
+// clipboard, the help line confirms it with the ~ form for a moment, and the
+// filter is left alone.
+func TestCopyKeyCopiesThePath(t *testing.T) {
+	log := filepath.Join(t.TempDir(), "clip")
+	stub := filepath.Join(t.TempDir(), "clipboard")
+	if err := os.WriteFile(stub, []byte("#!/bin/sh\ncat > "+log+"\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("ASGOTONOTES_CLIPBOARD", stub)
+	keyCtrlY := tea.KeyPressMsg{Code: 'y', Mod: tea.ModCtrl}
+	helpLine := func(m model) string {
+		plain := strings.Split(ansi.Strip(m.View().Content), "\n")
+		return plain[len(plain)-2]
+	}
+	copies := func(m model, want, label, help string) model {
+		t.Helper()
+		res, cmd := m.Update(keyCtrlY)
+		if cmd == nil {
+			t.Fatal("ctrl+y returned no command")
+		}
+		res, _ = res.(model).Update(cmd())
+		m = res.(model)
+		if got, _ := os.ReadFile(log); string(got) != want {
+			t.Errorf("the clipboard got %q, want the absolute path %q", got, want)
+		}
+		if got := helpLine(m); !strings.Contains(got, "copied "+label) {
+			t.Errorf("help line = %q, want the confirmation of %q", got, label)
+		}
+		if m.ti.Value() != "" {
+			t.Errorf("ctrl+y leaked into the filter: %q", m.ti.Value())
+		}
+		res, _ = m.Update(clearFlashMsg(m.flash.seq))
+		m = res.(model)
+		if got := helpLine(m); !strings.Contains(got, help) {
+			t.Errorf("after the timer the help is back: %q", got)
+		}
+		return m
+	}
+
+	m, root := uiFixture(t)
+	m = copies(m, root, "~/wt/shop/fix-ESHOP-551", "type filter")
+	m, _ = press(t, m, keyEnter)
+	m = copies(m, filepath.Join(root, "HANDOFF.md"), "~/wt/shop/fix-ESHOP-551/HANDOFF.md", "open in Zed")
+
+	// nothing under the cursor
+	m, _ = press(t, m, typed("zzzz")...)
+	res, cmd := m.Update(keyCtrlY)
+	res, _ = res.(model).Update(cmd())
+	if got := helpLine(res.(model)); !strings.Contains(got, "nothing to copy") {
+		t.Errorf("help line = %q, want \"nothing to copy\"", got)
+	}
+}
+
 // TestMain sandboxes the state dir: tests must never touch the real one.
 func TestMain(m *testing.M) {
 	dir, err := os.MkdirTemp("", "asgotonotes-test")

@@ -15,7 +15,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -29,11 +28,6 @@ func indexPath() string {
 		return p
 	}
 	return filepath.Join(homeDir(), ".claude", "files-index", "index.tsv")
-}
-
-func homeDir() string {
-	h, _ := os.UserHomeDir()
-	return h
 }
 
 // record is one index line.
@@ -155,16 +149,12 @@ func buildGroups(recs []record) []*group {
 	return groups
 }
 
-// ticketRe matches a Jira-style ticket key: 2+ letters, a dash and digits
-// (ESHOP-2707, fed-2283).
-var ticketRe = regexp.MustCompile(`[A-Za-z]{2,}-[0-9]+`)
-
 // groupLabel names a group: the ticket id found in the branch or in the
 // root's last path segment (first match, uppercased), else repo/branch,
 // else the root with ~.
 func groupLabel(root, repo, branch, home string) string {
-	if t := ticketRe.FindString(branch + " " + filepath.Base(root)); t != "" {
-		return strings.ToUpper(t)
+	if t := ticketFrom(branch, filepath.Base(root)); t != "" {
+		return t
 	}
 	if branch != "" {
 		if repo == "" {
