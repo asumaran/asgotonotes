@@ -1,3 +1,14 @@
+## v0.13.0 (2026-09-21)
+
+* docs: describe the new shared files and flashes (bf24226)
+* fix(ui): fit the context line to the width (c68d0eb)
+* docs: describe the opener, -dump and the header (fd4d8a5)
+* fix(ui): keep the cursor when the files change (8d04000)
+* docs: match the docs to the shared helpers (cb3c834)
+* fix(ui): filter on paste, share the frame helpers (ea25410)
+* test(pty): cover the panel's option and the mouse (5d14619)
+* refactor(list): word the empty list with emptyList (4572a3b)
+
 ## v0.12.1 (2026-09-20)
 
 * docs(readme): list the keys in a table (b1d4626)
