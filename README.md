@@ -94,19 +94,25 @@ opens all of them in one window. `ctrl+o` opens every listed file. `esc` goes
 back to the worktrees with the cursor where you left it. Files that no longer
 exist are skipped; if nothing is left to open, the popup stays up and says so.
 
-### Both views
+### Keys
 
-`ctrl+a` switches between notes and every indexed file, and the choice is
-remembered. `ctrl+y` copies the
-path under the cursor to the clipboard, the file in the files view and the
-root of the worktree in the worktrees view; the help line confirms it for a
-moment. `↑/↓` (or
-`ctrl+p`/`ctrl+n`) move the cursor, PgDn/PgUp move it a page, and
-`alt+↑`/`alt+↓` (or Home/End) take it to the top or the bottom of the list.
-`shift+↓`/`shift+↑` scroll the preview. `f1` opens a panel with the notes / all files option, to change in place, and every key; `esc` closes it. The mouse wheel moves the cursor over the list
-and scrolls the preview anywhere else. `shift+←`/`shift+→` resize
-the list; the split is remembered, and the list takes a quarter of the width
-by default. A click selects a row.
+| key | action |
+| --- | --- |
+| `enter` | open the worktree's files, or the file under the cursor (the marked ones, when there are any) in a new Zed window |
+| `tab`, `space` | files view: mark or unmark the file |
+| `ctrl+o` | files view: open every listed file |
+| `ctrl+a` | switch between notes and every indexed file; the choice is remembered |
+| `ctrl+y` | copy the path under the cursor to the clipboard (the file, or the root of the worktree); the help line confirms it |
+| `↑/↓`, `ctrl+p`/`ctrl+n` | move the cursor |
+| PgDn/PgUp | move the cursor a page |
+| `alt+↑`/`alt+↓`, Home/End | top or bottom of the list |
+| `shift+↓`/`shift+↑`, mouse wheel over the preview | scroll the preview |
+| mouse wheel over the list | move the cursor |
+| `f1` | open the panel: notes or all files to change in place, and every key (`esc` closes it) |
+| `shift+←`/`shift+→` | resize the list; the split is remembered (the list takes a quarter of the width by default) |
+| click | select a row |
+| `esc` | files view: back to the worktrees; worktrees view: close |
+| `q` with an empty filter | close |
 
 ### What counts as a note
 
