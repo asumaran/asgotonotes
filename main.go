@@ -23,8 +23,12 @@ var version = "dev"
 func main() {
 	showVersion := flag.Bool("version", false, "print the embedded version")
 	dump := flag.Bool("dump", false, "print the groups and their files (no TUI)")
-	all := flag.Bool("all", false, "with -dump: every indexed file instead of notes only")
-	query := flag.String("query", "", "with -dump: filter the groups and print scores")
+	all := flag.Bool("all", false, "every indexed file instead of notes only (not remembered)")
+	query := flag.String("query", "", "with -dump: print the matches and their scores instead of the list")
+	flag.Usage = func() {
+		fmt.Fprintln(flag.CommandLine.Output(), "usage: asgotonotes [flags]")
+		flag.PrintDefaults()
+	}
 	flag.Parse()
 
 	if *showVersion {
@@ -44,18 +48,21 @@ func main() {
 			fmt.Fprintln(os.Stderr, "asgotonotes:", err)
 			os.Exit(1)
 		}
-		runDump(groups, *all, *query, time.Since(start))
+		runDump(groups, showAll(*all), *query, time.Since(start))
 		return
 	}
 
 	// Alt screen and mouse mode are declared per frame by View().
-	res, err := tea.NewProgram(newModel(groups, loadErr)).Run()
+	res, err := tea.NewProgram(newModel(groups, loadErr, *all)).Run()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		fmt.Fprintln(os.Stderr, "asgotonotes:", err)
 		os.Exit(1)
 	}
 	final := res.(model)
-	runOpen(final.open, final.skipped)
+	if err := runOpen(final.open, final.skipped); err != nil {
+		fmt.Fprintln(os.Stderr, "asgotonotes:", err)
+		os.Exit(1)
+	}
 }
 
 // loadGroups reads the index and resolves every file's status.
@@ -84,8 +91,12 @@ func runDump(groups []*group, all bool, query string, took time.Duration) {
 	for _, g := range visible {
 		total += g.count(all)
 	}
-	fmt.Printf("index: %s, %d roots, %d shown, %s, loaded in %s\n",
-		tildePath(indexPath(), home), len(groups), len(visible), countLabel(total, all),
+	files := "notes"
+	if all {
+		files = "all"
+	}
+	fmt.Printf("index: %s, %d roots, %d shown, %s (files: %s), loaded in %s\n",
+		tildePath(indexPath(), home), len(groups), len(visible), countLabel(total, all), files,
 		took.Round(time.Millisecond))
 
 	if query != "" {

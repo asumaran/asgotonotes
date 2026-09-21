@@ -181,7 +181,13 @@ type model struct {
 	skipped int      // chosen files that no longer exist
 }
 
-func newModel(groups []*group, loadErr string) model {
+// showAll reports whether every indexed file is listed, for the popup and
+// for -dump alike: -all when given, else what was left chosen last time.
+func showAll(flag bool) bool {
+	return flag || loadSetting(stateDir(), "files") == "all"
+}
+
+func newModel(groups []*group, loadErr string, all bool) model {
 	m := model{
 		groups:       groups,
 		loadErr:      loadErr,
@@ -194,7 +200,7 @@ func newModel(groups []*group, loadErr string) model {
 		help:         help.New(),
 		keys:         defaultKeys(),
 		split:        loadSplit(stateDir()),
-		allFiles:     loadSetting(stateDir(), "files") == "all",
+		allFiles:     showAll(all),
 		renders:      map[string]string{},
 		previewStyle: "dark",
 		width:        94,
@@ -315,10 +321,11 @@ func (m *model) keepCursorOnFile(path string) {
 	}
 }
 
-// refilter re-applies the query after a keystroke or a mode toggle. An empty
-// query means nothing is being searched for, so the cursor stays on the row
-// it was on instead of jumping to the top.
-func (m *model) refilter() {
+// refilter re-applies the query. Typing jumps to the best match; with an empty
+// query, or when keep is set (an option changed, which is not a search), the
+// cursor stays on the row it was on. A row that is gone leaves the cursor on
+// the best match.
+func (m *model) refilter(keep bool) {
 	var root, path string
 	if g := m.currentGroup(); g != nil {
 		root = g.root
@@ -327,7 +334,7 @@ func (m *model) refilter() {
 		path = f.path
 	}
 	m.applyFilter()
-	if !hasTerms(m.ti.Value()) {
+	if keep || !hasTerms(m.ti.Value()) {
 		if m.view == viewFiles {
 			m.keepCursorOnFile(path)
 		} else {
@@ -395,7 +402,7 @@ func (m *model) setOption(id string, v int) tea.Cmd {
 	}
 	saveSetting(stateDir(), "files", value)
 	m.syncHelp()
-	m.refilter()
+	m.refilter(true)
 	m.renderList()
 	return m.updatePreview()
 }
@@ -648,7 +655,7 @@ func (m *model) queueOpen(paths []string) tea.Cmd {
 		}
 		return nil
 	}
-	if _, err := openerPath(); err != nil {
+	if _, err := openerCmd(); err != nil {
 		m.notice = err.Error()
 		return nil
 	}
@@ -657,16 +664,16 @@ func (m *model) queueOpen(paths []string) tea.Cmd {
 	return tea.Quit
 }
 
-// openerPath resolves the editor CLI. ASGOTONOTES_OPENER replaces it (the pty
-// driver points it at a logging stub). The popup may run with a shorter
-// PATH than an interactive shell, so the usual install locations of the zed
-// CLI are tried as well.
-func openerPath() (string, error) {
-	if b := os.Getenv("ASGOTONOTES_OPENER"); b != "" {
-		return b, nil
+// openerCmd is the command the files are appended to: `zed -n`, one new
+// window. ASGOTONOTES_OPENER replaces the whole command, flags included
+// (opener.go). The popup may run with a shorter PATH than an interactive
+// shell, so the usual install locations of the zed CLI are tried as well.
+func openerCmd() ([]string, error) {
+	if argv := openerArgv("asgotonotes"); len(argv) > 0 {
+		return argv, nil
 	}
 	if p, err := exec.LookPath("zed"); err == nil {
-		return p, nil
+		return []string{p, "-n"}, nil
 	}
 	for _, p := range []string{
 		"/usr/local/bin/zed",
@@ -675,29 +682,29 @@ func openerPath() (string, error) {
 		"/Applications/Zed.app/Contents/MacOS/cli",
 	} {
 		if fileExists(p) {
-			return p, nil
+			return []string{p, "-n"}, nil
 		}
 	}
-	return "", fmt.Errorf("zed CLI not found (install it from Zed: cli: install)")
+	return nil, fmt.Errorf("zed CLI not found (install it from Zed: cli: install)")
 }
 
 // runOpen hands the chosen files to Zed in one new window. It runs after the
 // TUI exits; the only output is a one-line note about skipped files.
-func runOpen(files []string, skipped int) {
+func runOpen(files []string, skipped int) error {
 	if skipped > 0 {
 		fmt.Fprintf(os.Stderr, "asgotonotes: skipped %d file(s) that no longer exist\n", skipped)
 	}
 	if len(files) == 0 {
-		return
+		return nil
 	}
-	bin, err := openerPath()
+	argv, err := openerCmd()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "asgotonotes:", err)
-		return
+		return err
 	}
-	if err := exec.Command(bin, append([]string{"-n"}, files...)...).Run(); err != nil {
-		fmt.Fprintln(os.Stderr, "asgotonotes:", err)
+	if err := exec.Command(argv[0], append(argv[1:], files...)...).Run(); err != nil {
+		return fmt.Errorf("%s: %w", argv[0], err)
 	}
+	return nil
 }
 
 // ---- bubbletea ----
@@ -862,7 +869,7 @@ func (m model) toInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if !changed {
 		return m, cmd
 	}
-	m.refilter()
+	m.refilter(false)
 	m.renderList()
 	return m, tea.Batch(cmd, m.updatePreview())
 }

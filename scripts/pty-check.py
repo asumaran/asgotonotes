@@ -99,7 +99,7 @@ class Session:
     """One run of the binary on a pty."""
     def __init__(self):
         env = dict(os.environ, TERM="xterm-256color", COLORTERM="truecolor", HOME=home,
-                   CLAUDE_FILES_INDEX=index, ASGOTONOTES_OPENER=opener, ASGOTONOTES_CLIPBOARD=clipboard,
+                   CLAUDE_FILES_INDEX=index, ASGOTONOTES_OPENER=opener + " -n", ASGOTONOTES_CLIPBOARD=clipboard,
                    GIT_CONFIG_GLOBAL="/dev/null", GIT_CONFIG_SYSTEM="/dev/null")
         for k in ("HERDR_ENV", "HERDR_PLUGIN_STATE_DIR", "XDG_STATE_HOME", "XDG_CONFIG_HOME"): env.pop(k, None)   # the state dir stays under the fake HOME
         self.master, slave = pty.openpty()

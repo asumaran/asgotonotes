@@ -46,7 +46,7 @@ func uiFixture(t *testing.T) (model, string) {
 				{path: filepath.Join(dir, "Developer", "tool", "x.go"), last: now.Add(-48 * time.Hour), status: statusTracked},
 			}},
 	}
-	m := newModel(groups, "")
+	m := newModel(groups, "", false)
 	res, _ := m.Update(tea.WindowSizeMsg{Width: 140, Height: 30})
 	return res.(model), root
 }
@@ -299,7 +299,7 @@ func TestBackgroundColorFlipsPreviewStyle(t *testing.T) {
 
 func TestMissingIndexShowsTheReason(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
-	m := newModel(nil, "no index at ~/.claude/files-index/index.tsv")
+	m := newModel(nil, "no index at ~/.claude/files-index/index.tsv", false)
 	if !strings.Contains(ansi.Strip(m.View().Content), "no index at") {
 		t.Errorf("view = %q", ansi.Strip(m.View().Content))
 	}
@@ -534,12 +534,12 @@ func TestAllFilesIsRemembered(t *testing.T) {
 	if !m.allFiles || loadSetting(stateDir(), "files") != "all" {
 		t.Fatalf("ctrl+a: all=%v saved=%q", m.allFiles, loadSetting(stateDir(), "files"))
 	}
-	next := newModel(m.groups, "")
+	next := newModel(m.groups, "", false)
 	if !next.allFiles || len(next.gRows) != 3 || next.keys.Toggle.Help().Desc != "notes only" {
 		t.Errorf("the next run lists all files again: all=%v groups=%d help=%q", next.allFiles, len(next.gRows), next.keys.Toggle.Help().Desc)
 	}
 	m, _ = press(t, m, keyCtrlA)
-	if m.allFiles || loadSetting(stateDir(), "files") != "notes" || newModel(m.groups, "").allFiles {
+	if m.allFiles || loadSetting(stateDir(), "files") != "notes" || newModel(m.groups, "", false).allFiles {
 		t.Errorf("ctrl+a again: all=%v saved=%q", m.allFiles, loadSetting(stateDir(), "files"))
 	}
 }
@@ -557,5 +557,39 @@ func TestPasteFilters(t *testing.T) {
 	res, _ = m.Update(tea.PasteMsg{Content: "xx"})
 	if got := res.(model).ti.Value(); got != "zzzzqq" {
 		t.Errorf("a paste under the panel should be dropped, the query is %q", got)
+	}
+}
+
+// -dump and the popup agree on the files listed: -all wins, else the saved
+// option, and the flag is not remembered.
+func TestShowAll(t *testing.T) {
+	t.Setenv("HERDR_PLUGIN_STATE_DIR", t.TempDir())
+	if showAll(false) {
+		t.Errorf("nothing saved: notes only")
+	}
+	if !showAll(true) || !newModel(nil, "", true).allFiles {
+		t.Errorf("-all lists every file")
+	}
+	if loadSetting(stateDir(), "files") != "" {
+		t.Errorf("-all must not be remembered")
+	}
+	saveSetting(stateDir(), "files", "all")
+	if !showAll(false) {
+		t.Errorf("the saved option applies without the flag")
+	}
+}
+
+// Changing an option is not a search: with a query typed, the cursor stays on
+// the group it was on instead of jumping back to the best match.
+func TestFilesChangeKeepsTheCursorWithAQuery(t *testing.T) {
+	m, _ := uiFixture(t)
+	m, _ = press(t, m, typed("e")...)
+	if len(m.gRows) < 2 {
+		t.Fatalf("the fixture must give two matches, got %d", len(m.gRows))
+	}
+	m, _ = press(t, m, tea.KeyPressMsg{Code: tea.KeyDown})
+	want := m.currentGroup().root
+	if m, _ = press(t, m, keyCtrlA); m.currentGroup() == nil || m.currentGroup().root != want {
+		t.Errorf("ctrl+a moved the cursor off %s", want)
 	}
 }
