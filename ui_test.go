@@ -543,3 +543,19 @@ func TestAllFilesIsRemembered(t *testing.T) {
 		t.Errorf("ctrl+a again: all=%v saved=%q", m.allFiles, loadSetting(stateDir(), "files"))
 	}
 }
+
+// TestPasteFilters: a paste changes the query without a key press, and the
+// list must follow it (toInput); under the panel it is dropped.
+func TestPasteFilters(t *testing.T) {
+	m, _ := uiFixture(t)
+	res, _ := m.Update(tea.PasteMsg{Content: "zzzzqq"})
+	m = res.(model)
+	if m.ti.Value() != "zzzzqq" || len(m.gRows) != 0 {
+		t.Fatalf("a paste should filter: query %q, %d groups", m.ti.Value(), len(m.gRows))
+	}
+	m.panel.open = true
+	res, _ = m.Update(tea.PasteMsg{Content: "xx"})
+	if got := res.(model).ti.Value(); got != "zzzzqq" {
+		t.Errorf("a paste under the panel should be dropped, the query is %q", got)
+	}
+}

@@ -1,11 +1,9 @@
 package main
 
-// Fuzzy filtering for both views. Rows keep their newest-first order while
-// filtering (the list is a timeline, not a ranking); the score only decides
-// where the cursor lands. Matched positions are byte offsets into the
-// displayed string, as sahilm/fuzzy reports them.
-
-import ()
+// Fuzzy filtering for both views. Without a query the rows keep their newest-first order; with
+// one the list is a search result, best match first (rank.go), and the cursor
+// starts on it. Matched positions are byte offsets into the displayed text, as
+// match.go reports them.
 
 // groupRow is one worktree in view 1.
 type groupRow struct {

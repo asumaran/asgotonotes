@@ -259,18 +259,14 @@ func (m *model) hasContext() bool { return m.view == viewFiles }
 func (m *model) bodyH() int { return max(1, m.height-frameRows(m.hasContext())-1) }
 
 func (m *model) resize() {
-	m.listVP.SetWidth(m.listW())
-	m.listVP.SetHeight(m.bodyH())
-	m.prevVP.SetWidth(m.prevW())
-	m.prevVP.SetHeight(m.bodyH())
+	sizePanes(&m.listVP, &m.prevVP, m.listW(), m.prevW(), m.bodyH())
 	m.help.SetWidth(max(0, m.width-4))
 	sizeInput(&m.ti, m.width-4)
 }
 
 // resizeList moves the divider between the list and the preview by one step.
 func (m *model) resizeList(grow bool) tea.Cmd {
-	m.split = stepSplit(m.split, grow)
-	saveSplit(stateDir(), m.split)
+	m.split = moveSplit(stateDir(), m.split, grow)
 	m.resize()
 	m.renderList()
 	return m.updatePreview()
@@ -331,7 +327,7 @@ func (m *model) refilter() {
 		path = f.path
 	}
 	m.applyFilter()
-	if m.ti.Value() == "" {
+	if !hasTerms(m.ti.Value()) {
 		if m.view == viewFiles {
 			m.keepCursorOnFile(path)
 		} else {
@@ -762,10 +758,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m.handleClick(msg)
 
+	case tea.PasteMsg:
+		if m.panel.open {
+			return m, nil // nothing is typed under the panel
+		}
+		return m.toInput(msg)
+
 	default:
-		var cmd tea.Cmd
-		m.ti, cmd = m.ti.Update(msg)
-		return m, cmd
+		// Whatever else the input takes (its own paste, the cursor's blink).
+		return m.toInput(msg)
 	}
 }
 
@@ -849,13 +850,20 @@ func (m model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	before := m.ti.Value()
-	var cmd tea.Cmd
-	m.ti, cmd = m.ti.Update(msg)
-	if m.ti.Value() != before {
-		m.refilter()
-		m.renderList()
+	return m.toInput(msg)
+}
+
+// toInput hands a message to the filter input and, when that changed the
+// query, filters again: a key, a paste from the terminal (tea.PasteMsg) or the
+// input's own ctrl+v all come through here, so the list never lags behind
+// what the input shows. A message that leaves the query alone moves nothing.
+func (m model) toInput(msg tea.Msg) (tea.Model, tea.Cmd) {
+	cmd, changed := typeInto(&m.ti, msg)
+	if !changed {
+		return m, cmd
 	}
+	m.refilter()
+	m.renderList()
 	return m, tea.Batch(cmd, m.updatePreview())
 }
 
@@ -879,12 +887,7 @@ func (m model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 	return m, m.updatePreview()
 }
 
-func (m model) View() tea.View {
-	v := tea.NewView(m.render())
-	v.AltScreen = true
-	v.MouseMode = tea.MouseModeCellMotion
-	return v
-}
+func (m model) View() tea.View { return popupView(m.render(), true) }
 
 // render stacks the sections in one frame (see frame.go).
 func (m model) render() string {
@@ -892,7 +895,7 @@ func (m model) render() string {
 	out := frameHead(w, m.context(), devMark(), m.ti.View())
 	out = append(out, splitMain(m.listLines(), strings.Split(m.prevVP.View(), "\n"),
 		m.listW(), m.detailsW(), m.counter(), scrollPos(&m.prevVP))...)
-	out = append(out, framed(w, m.footLine()), hline(w, "╰", "╯", "", ""))
+	out = append(out, framed(w, footLine(m.flash, m.notice, m.help, m.keys, w-4)), hline(w, "╰", "╯", "", ""))
 	if m.panel.open {
 		keys := keyLines(m.help, m.keys, w-10)
 		out = overlay(out, panelLines(m.options(), m.panel.cursor, keys, w-4, len(out)-2), w)
@@ -920,17 +923,7 @@ func (m model) counter() string {
 }
 
 // listLines is the list as exactly bodyH lines of listW cells.
-func (m model) listLines() []string {
-	lines := strings.Split(m.leftColumn(), "\n")
-	for len(lines) < m.bodyH() {
-		lines = append(lines, "")
-	}
-	lines = lines[:m.bodyH()]
-	for i, l := range lines {
-		lines[i] = fit(l, m.listW())
-	}
-	return lines
-}
+func (m model) listLines() []string { return fitLines(m.leftColumn(), m.bodyH(), m.listW()) }
 
 // leftColumn is the list, or the reason there is nothing to list.
 func (m model) leftColumn() string {
@@ -953,23 +946,4 @@ func (m model) groupHeader() string {
 		h += dot + stMark.Render(fmt.Sprintf("%d selected", n))
 	}
 	return h
-}
-
-// footer is the key help, or the notice while one is showing.
-// footMsg is what takes the help's place while there is something to say.
-func (m model) footMsg() string {
-	switch {
-	case m.flash.text != "":
-		return m.flash.view(m.width - 4)
-	case m.notice != "":
-		return stError.Render(truncate(m.notice, max(0, m.width-4)))
-	}
-	return ""
-}
-
-func (m model) footLine() string {
-	if msg := m.footMsg(); msg != "" {
-		return msg
-	}
-	return helpLine(m.help, m.keys, m.width-4)
 }
