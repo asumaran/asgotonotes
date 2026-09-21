@@ -157,12 +157,17 @@ scripts/pty-check.py ./asgotonotes   # end-to-end TUI check on a pty (python3 + 
 herdr plugin link "$PWD"   # register the working copy (no build step)
 ```
 
+`-dump` lists what the popup would: the files option left chosen in the panel
+applies, and the first line says which (`files: notes` or `files: all`). `-all`
+lists every indexed file for that run, in the popup too, without being
+remembered.
+
 Runtime state (the settings `files` and `split-columns`) lives in
 `HERDR_PLUGIN_STATE_DIR`; standalone runs use the same directory
 (`~/.local/state/herdr/plugins/asumaran.asgotonotes/`).
 
 `CLAUDE_FILES_INDEX` points at another index. `ASGOTONOTES_OPENER` replaces
-the `zed` binary and `ASGOTONOTES_CLIPBOARD` the clipboard command (`pbcopy`
+the `zed -n` command (a command line, flags included) and `ASGOTONOTES_CLIPBOARD` the clipboard command (`pbcopy`
 on macOS, else `wl-copy`, `xclip` or `xsel`); the pty check points both at
 logging stubs.
 `ASGOTONOTES_POPUP_WIDTH` / `ASGOTONOTES_POPUP_HEIGHT` override the

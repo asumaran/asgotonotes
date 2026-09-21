@@ -276,8 +276,9 @@ Keybinding (user config): `prefix+i` / `ctrl+alt+i` → `plugin_action`
   the `zed` CLI cannot be found, the popup stays open with a footer notice
   instead of quitting. Enter opens the multi-selection in list order (even
   rows the filter currently hides), else the cursor file; `ctrl+o` opens the
-  rows currently listed. `openerPath` also tries the usual zed locations since
-  the popup may run with a shorter PATH; `ASGOTONOTES_OPENER` replaces it.
+  rows currently listed. `openerCmd` also tries the usual zed locations since
+  the popup may run with a shorter PATH; `ASGOTONOTES_OPENER` replaces the
+  whole `zed -n` command, as words (`opener.go`).
 - **Preview**: view 1 is synchronous (the group's file rows). View 2 reads at
   most 512 KB / 200 lines off the update loop, caches per (path, width,
   mtime) and drops the cache when the glamour style flips
