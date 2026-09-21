@@ -937,17 +937,11 @@ func (m model) leftColumn() string {
 	if m.rowCount() > 0 {
 		return m.listVP.View()
 	}
-	msg := "No matches"
-	switch {
-	case m.loadErr != "":
-		msg = m.loadErr
-	case m.ti.Value() != "":
-	case m.allFiles:
-		msg = "Nothing indexed yet"
-	default:
-		msg = "No notes (ctrl+a: all files)"
+	reason := "No notes (ctrl+a: all files)"
+	if m.allFiles {
+		reason = "Nothing indexed yet"
 	}
-	return stDim.Render(truncate(" "+msg, m.listW()))
+	return emptyList(m.loadErr, m.ti.Value(), reason, m.listW())
 }
 
 // groupHeader is the first line of view 2: label · root · count.
