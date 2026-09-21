@@ -1,3 +1,8 @@
+## v0.12.1 (2026-09-20)
+
+* docs(readme): list the keys in a table (b1d4626)
+* refactor(list): keep the cursor in view with scrollTo (ff05616)
+
 ## v0.12.0 (2026-09-20)
 
 * feat(ui): remember notes only or all files (6f4bdbf)
