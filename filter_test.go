@@ -35,10 +35,15 @@ func TestFilterGroupsEmptyQueryKeepsEverything(t *testing.T) {
 	}
 }
 
-func TestFilterGroupsKeepsNewestFirstOrder(t *testing.T) {
+// A query ranks the rows (rank.go); the list's own newest-first order only
+// decides between matches that score the same, as these two do.
+func TestFilterGroupsEqualScoresStayNewestFirst(t *testing.T) {
 	rows := filterGroups(filterFixture(), "eshop", testHome)
 	if got := rowLabels(rows); got != "ESHOP-2707,ESHOP-551" {
-		t.Errorf("rows = %s, want both ESHOP groups in index order", got)
+		t.Errorf("rows = %s, want both ESHOP groups, the newest first", got)
+	}
+	if rows[0].score != rows[1].score {
+		t.Errorf("the fixture must give equal scores, got %d and %d", rows[0].score, rows[1].score)
 	}
 	if len(rows[0].labelIdx) != len("eshop") {
 		t.Errorf("label match must carry highlight indexes, got %v", rows[0].labelIdx)
@@ -89,6 +94,35 @@ func TestFilterFiles(t *testing.T) {
 	}
 	if rows := filterFiles(files, "", testHome); len(rows) != 3 {
 		t.Errorf("empty query keeps all files, got %d", len(rows))
+	}
+}
+
+// TestFilterFilesRanks: under a query the files are a search result, best
+// match first; without one they keep the order they came in.
+func TestFilterFilesRanks(t *testing.T) {
+	files := []noteFile{
+		{path: "/Users/dev/wt/shop/pull-and-rebase.md", status: statusUntracked}, // scattered
+		{path: "/Users/dev/wt/shop/explanation.md", status: statusUntracked},     // inside a word
+		{path: "/Users/dev/wt/shop/PLAN.md", status: statusUntracked},
+	}
+	base := func(rows []fileRow) string {
+		var out []string
+		for _, r := range rows {
+			out = append(out, r.f.path[strings.LastIndex(r.f.path, "/")+1:])
+		}
+		return strings.Join(out, ",")
+	}
+	if got := base(filterFiles(files, "", testHome)); got != "pull-and-rebase.md,explanation.md,PLAN.md" {
+		t.Errorf("no query: rows = %s, want the order they came in", got)
+	}
+	rows := filterFiles(files, "plan", testHome)
+	if got := base(rows); got != "PLAN.md,explanation.md,pull-and-rebase.md" {
+		t.Errorf("rows = %s, want the best match first and the scattered one last", got)
+	}
+	for i := 1; i < len(rows); i++ {
+		if rows[i].score > rows[i-1].score {
+			t.Errorf("rows are not ranked: %s", base(rows))
+		}
 	}
 }
 

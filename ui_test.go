@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -308,11 +311,10 @@ func TestMissingIndexShowsTheReason(t *testing.T) {
 	}
 }
 
-// TestFrameGeometry pins the single-frame layout in both views: exactly
-// height lines, each exactly width cells, sections where the click math
-// expects them.
+// TestFrameGeometry pins the single-frame layout in both views, at the popup's
+// size, wide and short, and narrow and short: exactly height lines, each
+// exactly width cells, sections where the click math expects them.
 func TestFrameGeometry(t *testing.T) {
-	m, _ := uiFixture(t)
 	check := func(m model, name string) {
 		lines := strings.Split(m.View().Content, "\n")
 		if len(lines) != m.height {
@@ -329,19 +331,27 @@ func TestFrameGeometry(t *testing.T) {
 			t.Errorf("%s: frame sections misplaced:\n%s", name, strings.Join(plain, "\n"))
 		}
 	}
-	check(m, "view 1")
-	// View 1 has no context line: the input sits right under the top border.
-	// The counter sits on the edge under the list.
-	if top := strings.Split(ansi.Strip(m.View().Content), "\n"); !strings.HasPrefix(top[1], "│ asgotonotes") || !strings.Contains(top[len(top)-3], "─ 2/2 ─┴") {
-		t.Errorf("view 1 head and counter edge:\n%s\n%s\n%s", top[0], top[1], top[len(top)-3])
-	}
-	if c := ansi.Strip(m.counter()); c != "2/2" {
-		t.Errorf("view 1 counter = %q", c)
-	}
-	m, _ = press(t, m, keyEnter)
-	check(m, "view 2")
-	if c := ansi.Strip(m.counter()); c != "2/2" {
-		t.Errorf("view 2 counter = %q", c)
+	for _, size := range [][2]int{{94, 24}, {150, 16}, {61, 12}, {40, 10}} {
+		m, _ := uiFixture(t)
+		res, _ := m.Update(tea.WindowSizeMsg{Width: size[0], Height: size[1]})
+		m = res.(model)
+		if m.width != size[0] || m.height != size[1] {
+			t.Fatalf("%v: the model is %dx%d", size, m.width, m.height)
+		}
+		check(m, fmt.Sprintf("%v view 1", size))
+		// View 1 has no context line: the input sits right under the top border.
+		// The counter sits on the edge under the list.
+		if top := strings.Split(ansi.Strip(m.View().Content), "\n"); !strings.HasPrefix(top[1], "│ asgotonotes") || !strings.Contains(top[len(top)-3], "─ 2/2 ─┴") {
+			t.Errorf("%v: view 1 head and counter edge:\n%s\n%s\n%s", size, top[0], top[1], top[len(top)-3])
+		}
+		if c := ansi.Strip(m.counter()); c != "2/2" {
+			t.Errorf("%v: view 1 counter = %q", size, c)
+		}
+		m, _ = press(t, m, keyEnter)
+		check(m, fmt.Sprintf("%v view 2", size))
+		if c := ansi.Strip(m.counter()); c != "2/2" {
+			t.Errorf("%v: view 2 counter = %q", size, c)
+		}
 	}
 }
 
@@ -560,6 +570,41 @@ func TestPasteFilters(t *testing.T) {
 	}
 }
 
+// TestEmptyListSaysWhy: a query that matches nothing says so in the list, in
+// both views, as in every tool of the family (emptyList in listnav.go). With
+// no query the list gives its own reason, and the hint names the key as the
+// help line does.
+func TestEmptyListSaysWhy(t *testing.T) {
+	m, _ := uiFixture(t)
+	first := func(m model) string {
+		res, _ := m.Update(tea.WindowSizeMsg{Width: 140, Height: 30}) // room for the whole reason
+		return ansi.Strip(res.(model).listLines()[0])
+	}
+	none, _ := press(t, m, typed("zzzzqq")...)
+	if len(none.gRows) != 0 {
+		t.Fatalf("the query should match nothing, got %d groups", len(none.gRows))
+	}
+	if list := first(none); !strings.HasPrefix(list, " No matches") {
+		t.Errorf("view 1 should say there are no matches: %q", list)
+	}
+	files, _ := press(t, m, keyEnter)
+	files, _ = press(t, files, typed("zzzzqq")...)
+	if files.view != viewFiles || len(files.fRows) != 0 {
+		t.Fatalf("the query should match no file: view=%v, %d files", files.view, len(files.fRows))
+	}
+	if list := first(files); !strings.HasPrefix(list, " No matches") {
+		t.Errorf("view 2 should say there are no matches: %q", list)
+	}
+	// nothing to list: only tracked code, which the notes mode hides
+	code := []*group{{root: "/r", repo: "tool", label: "tool/main", files: []noteFile{{path: "/r/x.go", status: statusTracked}}}}
+	if list := first(newModel(code, "", false)); !strings.HasPrefix(list, " No notes (^a: all files)") {
+		t.Errorf("no notes: %q", list)
+	}
+	if list := first(newModel(nil, "", true)); !strings.HasPrefix(list, " Nothing indexed yet") {
+		t.Errorf("an empty index: %q", list)
+	}
+}
+
 // -dump and the popup agree on the files listed: -all wins, else the saved
 // option, and the flag is not remembered.
 func TestShowAll(t *testing.T) {
@@ -591,5 +636,111 @@ func TestFilesChangeKeepsTheCursorWithAQuery(t *testing.T) {
 	want := m.currentGroup().root
 	if m, _ = press(t, m, keyCtrlA); m.currentGroup() == nil || m.currentGroup().root != want {
 		t.Errorf("ctrl+a moved the cursor off %s", want)
+	}
+}
+
+// On a narrow popup the root of the group loses its head, never the count or
+// the marks, which are the parts of the context line that change.
+func TestGroupHeaderFitsTheWidth(t *testing.T) {
+	m, _ := uiFixture(t)
+	m, _ = press(t, m, keyEnter)
+	if m.view != viewFiles {
+		t.Fatal("enter must open the group")
+	}
+	m.cur.root = "/a/very/long/path/that/goes/on/and/on/for/a/while/until/the/checkout"
+	m.selected[m.cur.root+"/x.md"] = true
+	res, _ := m.Update(tea.WindowSizeMsg{Width: 61, Height: 16})
+	m = res.(model)
+	h := ansi.Strip(m.groupHeader())
+	if ansi.StringWidth(h) > m.width-4 || !strings.Contains(h, "…") || !strings.HasSuffix(h, "1 selected") || !strings.Contains(h, "until/the/checkout") {
+		t.Errorf("header at width %d: %q", m.width, h)
+	}
+}
+
+// TestRunDump covers -dump: the summary says which files it counts, then a
+// line per group the mode shows and, under it, a line per file.
+func TestRunDump(t *testing.T) {
+	m, _ := uiFixture(t)
+	t.Setenv("CLAUDE_FILES_INDEX", "") // the summary names the default index, under the fixture's HOME
+	var out bytes.Buffer
+	runDump(&out, m.groups, false, "", time.Millisecond)
+	got := out.String()
+	lines := strings.Split(strings.TrimRight(got, "\n"), "\n")
+	if want := "index: ~/.claude/files-index/index.tsv, 3 roots, 2 shown, 3 notes (files: notes), loaded in 1ms"; lines[0] != want {
+		t.Errorf("summary %q, want %q", lines[0], want)
+	}
+	// the summary, 2 groups, 3 notes: the code and the group with code only are left out
+	if len(lines) != 6 || strings.Contains(got, "main.go") || strings.Contains(got, "tool/main") {
+		t.Errorf("got %d lines, want 6 and no code:\n%s", len(lines), got)
+	}
+	for _, want := range []string{"ESHOP-551 ", "FED-2283 ", "/HANDOFF.md\n", "/PLAN.md\n", "~/gone-brief.md\n"} {
+		if n := strings.Count(got, want); n != 1 {
+			t.Errorf("%q is in the dump %d times, want once:\n%s", want, n, got)
+		}
+	}
+	if !strings.HasPrefix(lines[1], "ESHOP-551 ") || !strings.HasSuffix(lines[1], "2 notes   0m  ~/wt/shop/fix-ESHOP-551") {
+		t.Errorf("group row %q, want the label, the count, the age and the root", lines[1])
+	}
+	if !strings.HasPrefix(lines[2], "  untracked ") || !strings.HasPrefix(lines[5], "  gone ") {
+		t.Errorf("file rows %q and %q, want them indented under the group with their status", lines[2], lines[5])
+	}
+
+	out.Reset()
+	runDump(&out, m.groups, true, "", time.Millisecond)
+	got = out.String()
+	lines = strings.Split(strings.TrimRight(got, "\n"), "\n")
+	if !strings.Contains(lines[0], "3 shown, 5 files (files: all)") {
+		t.Errorf("summary of every file: %q", lines[0])
+	}
+	// the summary, 3 groups, 5 files
+	if len(lines) != 9 || strings.Count(got, "/main.go\n") != 1 || strings.Count(got, "tool/main ") != 1 {
+		t.Errorf("got %d lines, want 9 with the code in:\n%s", len(lines), got)
+	}
+}
+
+// TestRunDumpQuery covers -dump -query: the groups that match with their
+// scores, best first, instead of the groups and their files.
+func TestRunDumpQuery(t *testing.T) {
+	m, _ := uiFixture(t)
+	var out bytes.Buffer
+	runDump(&out, m.groups, true, "fe", time.Millisecond)
+	got := out.String()
+	summary, matches, ok := strings.Cut(got, "query \"fe\":\n")
+	if !ok || strings.Count(summary, "\n") != 1 || !strings.Contains(summary, "(files: all)") {
+		t.Fatalf("want the summary and the query line on top:\n%s", got)
+	}
+	lines := strings.Split(strings.TrimRight(matches, "\n"), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("got %d matches, want ESHOP-551 (fix/ESHOP) and FED-2283:\n%s", len(lines), got)
+	}
+	last := 0
+	for i, l := range lines {
+		f := strings.Fields(l)
+		n, err := strconv.Atoi(f[0])
+		if err != nil || len(f) != 3 {
+			t.Fatalf("match %q, want a score, the label and the repo", l)
+		}
+		if i > 0 && n > last {
+			t.Errorf("score %d after %d, want the best first:\n%s", n, last, got)
+		}
+		last = n
+	}
+	for _, want := range []string{"ESHOP-551 ", "FED-2283 "} {
+		if strings.Count(matches, want) != 1 {
+			t.Errorf("%q is not in the matches once:\n%s", want, got)
+		}
+	}
+	// The matches replace the list: no other group, no file, no root.
+	for _, not := range []string{"tool", ".md", "~/wt/"} {
+		if strings.Contains(matches, not) {
+			t.Errorf("the query dump has %q, a piece of the full listing:\n%s", not, got)
+		}
+	}
+
+	// A group the mode hides is not a match either.
+	out.Reset()
+	runDump(&out, m.groups, false, "main", time.Millisecond)
+	if _, matches, _ := strings.Cut(out.String(), "query \"main\":\n"); matches != "" {
+		t.Errorf("tool/main has code only, notes mode should not match it: %q", matches)
 	}
 }

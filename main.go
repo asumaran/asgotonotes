@@ -10,6 +10,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"time"
 
@@ -48,7 +49,7 @@ func main() {
 			fmt.Fprintln(os.Stderr, "asgotonotes:", err)
 			os.Exit(1)
 		}
-		runDump(groups, showAll(*all), *query, time.Since(start))
+		runDump(os.Stdout, groups, showAll(*all), *query, time.Since(start))
 		return
 	}
 
@@ -84,7 +85,7 @@ func loadGroups(path string) ([]*group, error) {
 // runDump prints what the popup would show, without a TTY: the groups of
 // view 1 and, under each, the files of view 2. With -query it prints the
 // filtered groups and their scores instead.
-func runDump(groups []*group, all bool, query string, took time.Duration) {
+func runDump(w io.Writer, groups []*group, all bool, query string, took time.Duration) {
 	home, now := homeDir(), time.Now()
 	visible := visibleGroups(groups, all)
 	total := 0
@@ -95,14 +96,14 @@ func runDump(groups []*group, all bool, query string, took time.Duration) {
 	if all {
 		files = "all"
 	}
-	fmt.Printf("index: %s, %d roots, %d shown, %s (files: %s), loaded in %s\n",
+	fmt.Fprintf(w, "index: %s, %d roots, %d shown, %s (files: %s), loaded in %s\n",
 		tildePath(indexPath(), home), len(groups), len(visible), countLabel(total, all), files,
 		took.Round(time.Millisecond))
 
 	if query != "" {
-		fmt.Printf("query %q:\n", query)
+		fmt.Fprintf(w, "query %q:\n", query)
 		for _, r := range filterGroups(visible, query, home) {
-			fmt.Printf("  %5d  %-28s %s\n", r.score, r.g.label, r.g.repo)
+			fmt.Fprintf(w, "  %5d  %-28s %s\n", r.score, r.g.label, r.g.repo)
 		}
 		return
 	}
@@ -112,10 +113,10 @@ func runDump(groups []*group, all bool, query string, took time.Duration) {
 		if repo == "" {
 			repo = "-"
 		}
-		fmt.Printf("%-28s %-18s %10s %4s  %s\n", truncate(g.label, 28), truncate(repo, 18),
+		fmt.Fprintf(w, "%-28s %-18s %10s %4s  %s\n", truncate(g.label, 28), truncate(repo, 18),
 			countLabel(g.count(all), all), compactAge(g.last, now), tildePath(g.root, home))
 		for _, f := range g.visibleFiles(all) {
-			fmt.Printf("  %-9s %s  %s\n", f.status, f.last.Format("02/01 15:04"), tildePath(f.path, home))
+			fmt.Fprintf(w, "  %-9s %s  %s\n", f.status, f.last.Format("02/01 15:04"), tildePath(f.path, home))
 		}
 	}
 }

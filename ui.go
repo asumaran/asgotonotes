@@ -564,8 +564,7 @@ func (m *model) updatePreview() tea.Cmd {
 	if m.view == viewGroups {
 		g := m.currentGroup()
 		if g == nil {
-			m.prevKey = ""
-			m.prevVP.SetContent("")
+			m.clearPreview()
 			return nil
 		}
 		key := fmt.Sprintf("group|%s|%t|%d", g.root, m.allFiles, m.prevW())
@@ -587,21 +586,13 @@ func (m *model) updatePreview() tea.Cmd {
 
 	f := m.currentFile()
 	if f == nil {
-		m.prevKey = ""
-		m.prevVP.SetContent("")
+		m.clearPreview()
 		return nil
 	}
 	key := previewKey(f.path, m.prevW())
-	if key == m.prevKey {
+	if !m.showRender(key) {
 		return nil
 	}
-	m.prevKey = key
-	m.prevVP.GotoTop()
-	if c, ok := m.renders[key]; ok {
-		m.prevVP.SetContent(c)
-		return nil
-	}
-	m.prevVP.SetContent(stDim.Render("rendering…"))
 	return renderPreviewCmd(f.path, key, m.prevW(), m.previewStyle)
 }
 
@@ -666,8 +657,8 @@ func (m *model) queueOpen(paths []string) tea.Cmd {
 
 // openerCmd is the command the files are appended to: `zed -n`, one new
 // window. ASGOTONOTES_OPENER replaces the whole command, flags included
-// (opener.go). The popup may run with a shorter PATH than an interactive
-// shell, so the usual install locations of the zed CLI are tried as well.
+// (opener.go). Zed installs its CLI on request only ("cli: install"), so it
+// is often not on PATH: the usual install locations are tried as well.
 func openerCmd() ([]string, error) {
 	if argv := openerArgv("asgotonotes"); len(argv) > 0 {
 		return argv, nil
@@ -727,18 +718,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case flashMsg:
 		return m, m.flash.set(string(msg))
 
+	case flashErrMsg:
+		return m, m.flash.fail(string(msg))
+
 	case clearFlashMsg:
 		m.flash.clear(msg)
 		return m, nil
 
 	case previewMsg:
-		if msg.style != m.previewStyle { // rendered before the style flipped
-			return m, nil
-		}
-		m.renders[msg.key] = msg.content
-		if msg.key == m.prevKey {
-			m.prevVP.SetContent(msg.content)
-		}
+		m.handlePreview(msg)
 		return m, nil
 
 	case tea.KeyPressMsg:
@@ -937,20 +925,27 @@ func (m model) leftColumn() string {
 	if m.rowCount() > 0 {
 		return m.listVP.View()
 	}
-	reason := "No notes (ctrl+a: all files)"
+	reason := "No notes (^a: all files)"
 	if m.allFiles {
 		reason = "Nothing indexed yet"
 	}
 	return emptyList(m.loadErr, m.ti.Value(), reason, m.listW())
 }
 
-// groupHeader is the first line of view 2: label · root · count.
+// groupHeader is the first line of view 2: label · root · count, and what is
+// marked. The count and the marks are what change, so on a line too short for
+// everything it is the root that loses its head (pathTail), as the checkout
+// does in the context line of the diff tools.
 func (m model) groupHeader() string {
 	dot := stDim.Render(" · ")
-	h := stHeader.Render(m.cur.label) + dot + stDim.Render(tildePath(m.cur.root, m.home)) +
-		dot + countLabel(m.cur.count(m.allFiles), m.allFiles)
+	tail := dot + countLabel(m.cur.count(m.allFiles), m.allFiles)
 	if n := len(m.selected); n > 0 {
-		h += dot + stMark.Render(fmt.Sprintf("%d selected", n))
+		tail += dot + stMark.Render(fmt.Sprintf("%d selected", n))
 	}
-	return h
+	head := stHeader.Render(m.cur.label) + dot
+	root := tildePath(m.cur.root, m.home)
+	if room := m.width - 4 - ansi.StringWidth(head) - ansi.StringWidth(tail); room > 8 {
+		root = pathTail(root, room)
+	}
+	return head + stDim.Render(root) + tail
 }

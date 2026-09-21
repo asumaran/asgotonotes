@@ -21,12 +21,6 @@ const (
 	previewMaxBytes = 512 * 1024
 )
 
-type previewMsg struct {
-	key     string
-	style   string // glamour style the render used; dropped if it changed since
-	content string
-}
-
 // previewKey identifies a render. The mtime component makes stale renders
 // unreachable after the file changes; a missing file has mtime 0.
 func previewKey(path string, width int) string {
@@ -58,7 +52,7 @@ func renderFile(path string, width int, style string) string {
 	case os.IsNotExist(err):
 		return stGone.Render("gone: " + tildePath(path, homeDir()))
 	case err != nil:
-		return stError.Render(err.Error())
+		return errorBlock(err.Error(), width)
 	case strings.ContainsRune(text, 0):
 		return stDim.Render("(binary file)")
 	case strings.TrimSpace(text) == "":
