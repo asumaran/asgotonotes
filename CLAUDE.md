@@ -64,6 +64,10 @@ Files are split by concern:
 - `statedir.go` — `stateDirFor`: the state dir herdr injects, or a fixed path
   under the config home when the tool runs on its own. The same file in every
   tool of the family that keeps state.
+- `setting.go` — `loadSetting`, `saveSetting`: a setting the tool remembers,
+  one plain-text file each in the state dir. Every option of the panel is
+  kept this way, per tool. The same file in every tool of the family that
+  needs it.
 - `age.go` — `compactAge` (`5m`, `3h`, `2d`, `6w`, `2y`) for a list column and
   `relTime` (`3h ago`) for a sentence. The same file in every tool of the
   family that shows an age.
@@ -188,8 +192,8 @@ Keybinding (user config): `prefix+i` / `ctrl+alt+i` → `plugin_action`
   (`.md`/`.markdown`/`.txt` OR status empty/plan). Memory files are anything
   under `~/.claude/projects/<project>/memory/` (`isMemoryFile`): indexed and
   listed in all-files mode, never counted as notes. Same rule as `_cf_is_note`
-  in the dotfiles zsh prototype. `ctrl+a` toggles notes / all files and persists across
-  both views. Groups with zero notes are hidden in notes mode.
+  in the dotfiles zsh prototype. `ctrl+a` toggles notes / all files; the choice holds across
+  both views and is remembered between runs (setting `files`). Groups with zero notes are hidden in notes mode.
 - **Tracked lookup**: ONE `git --literal-pathspecs -C <root> ls-files -z --
   <files inside root>` per group, never a full `ls-files` of the tree (the
   work monorepos are huge). Literal pathspecs keep `[id].tsx` from being read

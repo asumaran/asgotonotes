@@ -96,7 +96,8 @@ exist are skipped; if nothing is left to open, the popup stays up and says so.
 
 ### Both views
 
-`ctrl+a` switches between notes and every indexed file. `ctrl+y` copies the
+`ctrl+a` switches between notes and every indexed file, and the choice is
+remembered. `ctrl+y` copies the
 path under the cursor to the clipboard, the file in the files view and the
 root of the worktree in the worktrees view; the help line confirms it for a
 moment. `↑/↓` (or

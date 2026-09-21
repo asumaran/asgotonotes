@@ -194,11 +194,13 @@ func newModel(groups []*group, loadErr string) model {
 		help:         help.New(),
 		keys:         defaultKeys(),
 		split:        loadSplit(stateDir()),
+		allFiles:     loadSetting(stateDir(), "files") == "all",
 		renders:      map[string]string{},
 		previewStyle: "dark",
 		width:        94,
 		height:       24,
 	}
+	m.syncHelp()
 	m.applyFilter()
 	m.resize()
 	m.renderList()
@@ -366,6 +368,15 @@ func (m *model) backToGroups() {
 	m.resize()
 }
 
+// syncHelp makes the toggle's help name what the next press does.
+func (m *model) syncHelp() {
+	label := "all files"
+	if m.allFiles {
+		label = "notes only"
+	}
+	m.keys.Toggle.SetHelp("^a", label)
+}
+
 // options is what the panel offers: what is listed, which keeps ctrl+a.
 func (m *model) options() []option {
 	cur := 0
@@ -375,18 +386,19 @@ func (m *model) options() []option {
 	return []option{{id: "files", label: "Files", values: []string{"notes only", "all files"}, cur: cur, key: "^a"}}
 }
 
-// setOption changes what is listed. The key and the panel both come through
-// here; the key's help names what the next press does.
+// setOption changes what is listed and remembers it. The key and the panel
+// both come through here.
 func (m *model) setOption(id string, v int) tea.Cmd {
 	if id != "files" {
 		return nil
 	}
 	m.allFiles = v == 1
-	label := "all files"
+	value := "notes"
 	if m.allFiles {
-		label = "notes only"
+		value = "all"
 	}
-	m.keys.Toggle.SetHelp("^a", label)
+	saveSetting(stateDir(), "files", value)
+	m.syncHelp()
 	m.refilter()
 	m.renderList()
 	return m.updatePreview()

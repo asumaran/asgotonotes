@@ -19,6 +19,7 @@ func uiFixture(t *testing.T) (model, string) {
 	dir := t.TempDir()
 	t.Setenv("HOME", dir)
 	t.Setenv("ASGOTONOTES_OPENER", "/usr/bin/true")
+	t.Setenv("HERDR_PLUGIN_STATE_DIR", t.TempDir()) // settings are remembered: each test starts clean
 	root := filepath.Join(dir, "wt", "shop", "fix-ESHOP-551")
 	os.MkdirAll(root, 0o755)
 	write := func(name, body string) string {
@@ -522,5 +523,23 @@ func TestPanel(t *testing.T) {
 	m, _ = press(t, m, typed("x?")...)
 	if m.panel.open || m.ti.Value() != "x?" {
 		t.Errorf("filter = %q, panel open = %v, want ? typed as text", m.ti.Value(), m.panel.open)
+	}
+}
+
+// TestAllFilesIsRemembered: what is listed is a setting, kept for the next
+// run like the divider.
+func TestAllFilesIsRemembered(t *testing.T) {
+	m, _ := uiFixture(t)
+	m, _ = press(t, m, keyCtrlA)
+	if !m.allFiles || loadSetting(stateDir(), "files") != "all" {
+		t.Fatalf("ctrl+a: all=%v saved=%q", m.allFiles, loadSetting(stateDir(), "files"))
+	}
+	next := newModel(m.groups, "")
+	if !next.allFiles || len(next.gRows) != 3 || next.keys.Toggle.Help().Desc != "notes only" {
+		t.Errorf("the next run lists all files again: all=%v groups=%d help=%q", next.allFiles, len(next.gRows), next.keys.Toggle.Help().Desc)
+	}
+	m, _ = press(t, m, keyCtrlA)
+	if m.allFiles || loadSetting(stateDir(), "files") != "notes" || newModel(m.groups, "").allFiles {
+		t.Errorf("ctrl+a again: all=%v saved=%q", m.allFiles, loadSetting(stateDir(), "files"))
 	}
 }
