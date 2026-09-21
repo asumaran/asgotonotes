@@ -1,3 +1,7 @@
+## v0.12.0 (2026-09-20)
+
+* feat(ui): remember notes only or all files (6f4bdbf)
+
 ## v0.11.0 (2026-09-20)
 
 * feat(ui): open an options and keys panel with f1 (eee665a)
