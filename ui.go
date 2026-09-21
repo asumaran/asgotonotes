@@ -548,16 +548,8 @@ func (m *model) setCursor(i int) {
 }
 
 func (m *model) ensureVisible() {
-	h, c := m.listVP.Height(), m.cursor()
-	if h <= 0 || c < 0 {
-		m.listVP.SetYOffset(0)
-		return
-	}
-	if c < m.listVP.YOffset() {
-		m.listVP.SetYOffset(c)
-	} else if c >= m.listVP.YOffset()+h {
-		m.listVP.SetYOffset(c - h + 1)
-	}
+	c := m.cursor()
+	m.listVP.SetYOffset(scrollTo(m.listVP.YOffset(), m.listVP.Height(), m.rowCount(), c, c))
 }
 
 // ---- preview ----
