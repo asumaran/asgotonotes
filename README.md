@@ -61,7 +61,7 @@ description = "asgotonotes (Claude's notes per worktree)"
 
 ## Usage
 
-The filter input is focused on open, so just type. A query of several words matches them in any order (`login fix` finds "fix login flow"), and a word starting with `'` must occur as typed instead of fuzzily (`'dex`). There are two views.
+The filter input is focused on open, so just type. A query of several words matches them in any order (`login fix` finds "fix login flow"), and a word starting with `'` must occur as typed instead of fuzzily (`'dex`). Pasting into the filter (a terminal paste or `ctrl+v`) filters like typing does. A query of spaces only, or a bare `~` or `'`, is not a query yet: the list stays as it is and the cursor does not move. There are two views.
 
 ### Worktrees
 
@@ -71,7 +71,7 @@ the branch or in the worktree directory name (`fix/eshop-2707-ssr` becomes
 `ESHOP-2707`), otherwise `repo/branch`, otherwise the path. The right side
 lists the notes of the worktree under the cursor. The filter matches the
 label, the repo, the branch and the path. `enter` opens the worktree's files,
-`esc` closes the popup, and so does `q` while the filter is empty.
+`esc` or `ctrl+c` quits, and so does `q` while the filter is empty.
 
 ### Files
 
@@ -111,8 +111,8 @@ exist are skipped; if nothing is left to open, the popup stays up and says so.
 | `f1` | open the panel: notes or all files to change in place, and every key (`esc` closes it) |
 | `shift+←`/`shift+→` | resize the list; the split is remembered (the list takes a quarter of the width by default) |
 | click | select a row |
-| `esc` | files view: back to the worktrees; worktrees view: close |
-| `q` with an empty filter | close |
+| `esc` | files view: back to the worktrees; worktrees view: quit |
+| `ctrl+c`, `q` with an empty filter | quit |
 
 ### What counts as a note
 
@@ -128,13 +128,16 @@ look like notes but are not about a ticket. They are still listed with
 
 ## Behavior notes
 
-- asgotonotes is read-only. It never edits, deletes or commits anything, and
-  the only thing it runs besides git is `zed -n <files...>`, after the popup
-  closes.
+- asgotonotes only reads the notes. It never edits, deletes or commits
+  anything, and the only thing it runs besides git is `zed -n <files...>`,
+  after the popup closes. What it writes is its own: its settings (notes or
+  all files, and the size of the list).
+- An index that cannot be read is reported in the list, in red; the popup
+  still opens.
 - Tracked or untracked is answered with one `git ls-files` call per worktree,
   restricted to that worktree's indexed files. It never lists the whole tree,
   so big monorepos stay fast. Pathspecs are literal, so `[id].tsx` is a file
-  name and not a glob. The real index (about 1,650 lines, 60 roots) loads in
+  name and not a glob. An index of about 1,650 lines and 60 roots loads in
   around 100 ms.
 - Repo and branch of a worktree come from its newest index line that has
   them, because a main clone changes branch over time.
@@ -148,13 +151,20 @@ go build -o asgotonotes .   # local build (plugin runs ./asgotonotes from the re
 ./asgotonotes -dump         # print the worktrees and their notes (no TTY)
 ./asgotonotes -dump -all    # every indexed file instead of notes only
 ./asgotonotes -dump -query eshop   # filtered worktrees with their scores
+./asgotonotes -version      # print the embedded version
 go vet ./... && go test ./...
 scripts/pty-check.py ./asgotonotes   # end-to-end TUI check on a pty (python3 + pyte)
 herdr plugin link "$PWD"   # register the working copy (no build step)
 ```
 
-`ASGOTONOTES_OPENER` replaces the `zed` binary and `ASGOTONOTES_CLIPBOARD`
-the clipboard command (the pty check points both at logging stubs).
+Runtime state (the settings `files` and `split-columns`) lives in
+`HERDR_PLUGIN_STATE_DIR`; standalone runs use the same directory
+(`~/.local/state/herdr/plugins/asumaran.asgotonotes/`).
+
+`CLAUDE_FILES_INDEX` points at another index. `ASGOTONOTES_OPENER` replaces
+the `zed` binary and `ASGOTONOTES_CLIPBOARD` the clipboard command (`pbcopy`
+on macOS, else `wl-copy`, `xclip` or `xsel`); the pty check points both at
+logging stubs.
 `ASGOTONOTES_POPUP_WIDTH` / `ASGOTONOTES_POPUP_HEIGHT` override the
 popup size from the manifest.
 
