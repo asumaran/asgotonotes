@@ -75,7 +75,10 @@ label, the repo, the branch and the path. `enter` opens the worktree's files,
 
 ### Files
 
-The files of that worktree, newest write first. Each row has a status, the
+The files of that worktree, newest write first. The line on top names the
+worktree: its label, its root, the number of notes (or files) and how many are
+marked. When it does not fit, the root loses its head, not the count or the
+marks. Each row has a status, the
 time of the last write and the path. When the list is narrow the time shrinks
 to an age (`3h`) and then goes away, so the file name stays readable:
 

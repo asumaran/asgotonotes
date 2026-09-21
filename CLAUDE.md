@@ -46,7 +46,8 @@ v2 modules are imported under their canonical `charm.land/<name>/v2` paths
 Files are split by concern:
 
 - `main.go`: flags (`-version`, `-dump`, `-all`, `-query`), `loadGroups`,
-  `tea.NewProgram`, post-quit `runOpen`, `runDump`.
+  `tea.NewProgram`, post-quit `runOpen`, `runDump` (it writes to an
+  `io.Writer`, so the tests read what `-dump` prints).
 - `index.go`: pure logic: `parseIndex`, `buildGroups` (dedup, newest first),
   `groupLabel`, `fileStatus`, the note rule `isNote` / `isMemoryFile`,
   `visibleGroups`, `stateDir()`.
@@ -61,7 +62,8 @@ Files are split by concern:
   a bare `~` or `'` do not, so they never filter, rank or move the cursor. The
   same file in every tool of the family.
 - `text.go`: `truncate`, `padRight`, `padLeft`: fitting text, styled or not,
-  into cells. The same file in every tool of the family.
+  into cells. `errorBlock` is an error for a preview: every line of it cut to
+  the width, in the error color. The same file in every tool of the family.
 - `statedir.go`: `stateDirFor`: the state dir herdr injects
   (`HERDR_PLUGIN_STATE_DIR`) or, when the tool runs on its own, the same
   directory worked out
@@ -76,8 +78,13 @@ Files are split by concern:
   `relTime` (`3h ago`) for a sentence. The same file in every tool of the
   family that shows an age.
 - `markdown.go`: `renderMarkdown` (glamour with a fixed style, never
-  auto-detected), `glamourStyle` and `setPreviewStyle`. The same file in every
-  tool of the family that renders Markdown.
+  auto-detected), `glamourStyle` and `setPreviewStyle`, plus the preview's
+  side of a render: `previewMsg` (a finished render and the style it used),
+  `showRender` (points the preview at a render and reports whether it has to
+  be started), `clearPreview`, and `handlePreview` (keeps a finished render,
+  shows it when it is still the one awaited, and drops one rendered before the
+  style flipped). The same file in every tool of the family that renders
+  Markdown.
 - `listmouse.go`: `inList`, `rowUnder`, `wheelKey`: the mouse over the list.
   The wheel goes through the same code as the arrows; a click moves the
   cursor and never opens anything. The same file in every tool of the family.
@@ -103,10 +110,13 @@ Files are split by concern:
 - `highlight.go`: `highlight`/`highlightFrom`, `matchOver`, `onSel`,
   `selPad` and the `stSel`/`stMatch` styles: how a match and the selected row
   look. The same file in every tool of the family.
-- `flash.go`: `flash`, `flashMsg`, `clearFlashMsg`: a confirmation that takes
-  the help line for a moment. The same file in every tool of the family.
+- `flash.go`: `flash`, `flashMsg`, `flashErrMsg`, `clearFlashMsg`: a word that
+  takes the help line for a moment: a confirmation in green (`flash.set`), or
+  a key that could do nothing (`nothing to copy`) in the error color
+  (`flash.fail`). The same file in every tool of the family.
 - `clipboard.go`: `copyCmd`: feeds a text to the system clipboard and reports
-  it with a `flashMsg`; `ASGOTONOTES_CLIPBOARD` replaces the command. The same
+  it with a `flashMsg`, or with a `flashErrMsg` when there is nothing to copy
+  or the copy fails; `ASGOTONOTES_CLIPBOARD` replaces the command. The same
   file in every tool of the family.
 - `border.go`: `hline`, `framed`, `fit`, `scrollPos`: the primitives the frame
   is drawn with (an edge with texts set into it, a line between the frame's
@@ -127,6 +137,11 @@ Files are split by concern:
 - `pathcells.go`: `pathCells`, `pathTail`, `tailCut`: a path cut to a width
   by its head, its prefix dimmed, its matches marked. The same file in every
   tool that lists paths.
+- `opener.go`: `openerArgv`: the command `<TOOL>_OPENER` names, as words, or
+  nothing when the variable is unset and the tool's own default applies. The
+  value is a command line, not a path: `code -n` and a wrapper with flags both
+  work, a path with spaces does not. The same file in every tool of the family
+  that opens something.
 - `frame.go`: the single-frame layout the pickers share: `frameHead`,
   `splitMain` (list and preview) and the section rows (`mainY`, `listY`,
   `frameRows`, each with or without the optional context line), drawn with the
@@ -204,7 +219,9 @@ Keybinding (user config): `prefix+i` / `ctrl+alt+i` → `plugin_action`
   closes it before it does anything else. `?` is not a help key: the filter
   has the focus, so it is text. Moving, scrolling and resizing are listed in
   the panel only, so the help line stays short enough for a narrow popup. A
-  message (error, notice) takes the help line's place.
+  message takes the help line's place (`footLine`): a flash for a moment (a
+  confirmation in green, a key that could do nothing in the error color),
+  else an error or a notice in the error color.
   This tool's options are notes only or all files: `options()` lists them as things stand and
   `setOption` is the one place that changes a setting, for the panel and for
   the keys that kept a shortcut. A setting that is chosen once has no key of
@@ -255,14 +272,19 @@ Keybinding (user config): `prefix+i` / `ctrl+alt+i` → `plugin_action`
   the cursor stays on the row it was on (`refilter`).
 - **Views**: enter stashes the view 1 query and opens view 2 with an empty
   one; esc restores the query and puts the cursor back on the same group.
-  The group header of view 2 is the frame's context line; view 1 has none, so
-  `listY` and `bodyH` depend on the view (`hasContext()`).
+  The group header of view 2 is the frame's context line (`groupHeader`:
+  label · root · count, then `N selected` while files are marked); view 1 has
+  none, so `listY` and `bodyH` depend on the view (`hasContext()`). The line
+  is fitted to the width: the count and the marks are what change, so it is
+  the root that loses its head (`pathTail`), not them.
 - **Keys vs. filter**: every printable key filters, so `q` quits only while
   the filter is empty, and `space` marks in view 2 instead of typing. `ctrl+a`
   is intercepted before the textinput (which would treat it as line-start).
 - **Copy**: `ctrl+y` copies the absolute path under the cursor in both views
   (the file, or the root of the worktree) with `copyCmd` (the shared
-  `clipboard.go`) and the help line flashes `copied <~ path>` (`flash.go`).
+  `clipboard.go`) and the help line flashes `copied <~ path>` (`flash.go`);
+  `nothing to copy` and `copy failed: ...` flash in the error color instead
+  of green (`flashErrMsg`).
   `ASGOTONOTES_CLIPBOARD` replaces the clipboard command (the tests point it
   at a stub).
 - **Settings**: notes only or all files is one file in the state dir
@@ -277,12 +299,13 @@ Keybinding (user config): `prefix+i` / `ctrl+alt+i` → `plugin_action`
   instead of quitting. Enter opens the multi-selection in list order (even
   rows the filter currently hides), else the cursor file; `ctrl+o` opens the
   rows currently listed. `openerCmd` also tries the usual zed locations since
-  the popup may run with a shorter PATH; `ASGOTONOTES_OPENER` replaces the
+  Zed installs its CLI on request only; `ASGOTONOTES_OPENER` replaces the
   whole `zed -n` command, as words (`opener.go`).
 - **Preview**: view 1 is synchronous (the group's file rows). View 2 reads at
   most 512 KB / 200 lines off the update loop, caches per (path, width,
   mtime) and drops the cache when the glamour style flips
-  (`setPreviewStyle`), shows `(binary file)` on NUL bytes. A leading YAML
+  (`setPreviewStyle`), shows `(binary file)` on NUL bytes. A file that
+  cannot be read shows the error through the shared `errorBlock` (`text.go`). A leading YAML
   frontmatter block (memory files, plans) is shown dimmed as plain text,
   because glamour renders it as a rule plus a heading.
 - **Errors**: an index that cannot be read is shown in the list in the error
