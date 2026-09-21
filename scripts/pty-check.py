@@ -344,6 +344,29 @@ check(divider(f) == grown, "the next run opens with the same split: %d" % divide
 s.send(SHIFT_LEFT, 0.6)
 s.send(b"q", 0.2); s.finish()
 
+# ---------- last run: notes or all files is an option of the panel, remembered; the mouse over the list ----------
+files_file = os.path.join(home, ".local", "state", "herdr", "plugins", "asumaran.asgotonotes", "files")
+os.makedirs(os.path.dirname(files_file), exist_ok=True)
+with open(files_file, "w") as fh: fh.write("notes\n")
+def groups(f): return [l for l in left(f) if l.strip()]
+s = Session()
+f = s.start(); notes = len(groups(f))
+s.send(b"\x1bOP", 0.5)            # f1: the panel
+s.send(b" ", 0.5)                  # space on Files: notes only -> all files
+f = s.send(ESC, 0.6); dump("all files from the panel", f)
+check(len(groups(f)) > notes and open(files_file).read().strip() == "all" and "^a notes only" in helpline(f),
+      "the panel lists all files and saves it: %d -> %d groups" % (notes, len(groups(f))))
+everything = len(groups(f))
+s.send(b"q", 0.2); s.finish()
+s = Session()
+f = s.start()
+check(len(groups(f)) == everything and "^a notes only" in helpline(f), "the next run lists all files again: %d groups" % len(groups(f)))
+f = s.send(b"\x1b[<0;5;5M\x1b[<0;5;5m", 0.6)   # SGR press+release on the second list line
+check(groups(f)[1].startswith("▌") and s.proc.poll() is None, "a click selects the row and opens nothing: %r" % groups(f)[:3])
+f = s.send(b"\x1b[<64;5;5M", 0.6)   # the wheel, up, over the list
+check(groups(f)[0].startswith("▌"), "the wheel over the list moves the cursor: %r" % groups(f)[:3])
+s.send(b"q", 0.2); s.finish()
+
 shutil.rmtree(SANDBOX, ignore_errors=True)
 print("\n%d failure(s)" % len(failures))
 sys.exit(1 if failures else 0)

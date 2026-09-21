@@ -88,7 +88,9 @@ Files are split by concern:
   `overlay`). The same file in every tool of the family.
 - `listnav.go` — `listNav`: the keys that move the cursor through a list and
   where each one takes it, group headers skipped. `scrollTo` keeps the
-  cursor in view, with the header of its group when there is one. The same file in every tool
+  cursor in view, with the header of its group when there is one. `emptyList`
+  is what a list says instead of rows: the error, `No matches`, or the
+  tool's own reason. The same file in every tool
   of the family.
 - `highlight.go` — `highlight`/`highlightFrom`, `matchOver`, `onSel`,
   `selPad` and the `stSel`/`stMatch` styles: how a match and the selected row
@@ -219,9 +221,14 @@ Keybinding (user config): `prefix+i` / `ctrl+alt+i` → `plugin_action`
 - **Keys vs. filter**: every printable key filters, so `q` quits only while
   the filter is empty, and `space` marks in view 2 instead of typing. `ctrl+a`
   is intercepted before the textinput (which would treat it as line-start).
-  `ctrl+y` copies the absolute path under the cursor in both views (the file,
-  or the root of the worktree) and flashes `copied <~ path>` on the help line
-  (`flash.go`, `clipboard.go`); `ASGOTONOTES_CLIPBOARD` replaces the command.
+- **Copy**: `ctrl+y` copies the absolute path under the cursor in both views
+  (the file, or the root of the worktree) with `copyCmd` (the shared
+  `clipboard.go`) and the help line flashes `copied <~ path>` (`flash.go`).
+  `ASGOTONOTES_CLIPBOARD` replaces the clipboard command (the tests point it
+  at a stub).
+- **Settings**: notes only or all files is one file in the state dir
+  (`files`; `setting.go`, the same file in every tool of the family that
+  remembers an option), next to the divider's `split-columns`.
 - **Paths** that do not fit lose their head, not their tail (`pathCells`), so
   the file name is always visible; the root prefix is dimmed.
 - **Opening** happens after the TUI quits (quitting closes the popup and
