@@ -1,7 +1,7 @@
 package main
 
-// The bubbletea model: one frame (see frame.go) holding a context line, the
-// filter input, the list next to the preview, and the help, in two views. View 1 lists the worktree
+// The bubbletea model: one frame (see frame.go) holding the filter input,
+// the list next to the preview, and the foot, in two views. View 1 lists the worktree
 // groups and previews the files of the one under the cursor; view 2 lists
 // the files of the chosen group and previews the one under the cursor.
 // Modeled on asgotopr: the input is focused before the program starts, every
@@ -79,10 +79,10 @@ type keyMap struct {
 	files bool // which view the short help describes
 }
 
-// ShortHelp is the folded help line: the view's own actions, the help and the
-// quit keys. Moving, scrolling and resizing are in the expanded help, so the
-// line stays short enough for a narrow popup (a cut line loses the quit keys
-// first).
+// ShortHelp is the help: the view's own actions, the panel's key and the
+// quit keys. Moving, scrolling and resizing are in the panel, so the line
+// stays short enough for a narrow popup (a cut line loses the quit keys
+// first). View 2 shows only the panel's key of it, next to the group header.
 func (k keyMap) ShortHelp() []key.Binding {
 	if k.files {
 		return []key.Binding{k.Open, k.Mark, k.OpenAll, k.Toggle, k.Help, k.Back}
@@ -158,7 +158,7 @@ type model struct {
 	// ui
 	view   viewKind
 	notice string // transient footer message, cleared by the next key
-	flash  flash  // confirmation on the help line (flash.go)
+	flash  flash  // confirmation at the foot (flash.go)
 	panel  panel  // options and keys, over the frame while it is open (panel.go)
 	ti     textinput.Model
 	listVP viewport.Model
@@ -256,13 +256,9 @@ func (m *model) prevW() int    { return max(10, m.detailsW()-2) }
 // listW is what the divider leaves for the list.
 func (m *model) listW() int { w, _ := splitWidths(m.innerW(), m.split); return w }
 
-// hasContext reports whether the frame carries its context line: only view 2
-// does (the group header), so the two views differ by two lines.
-func (m *model) hasContext() bool { return m.view == viewFiles }
-
 // bodyH is the height of the main section: everything but the frame's own
-// lines and the help.
-func (m *model) bodyH() int { return max(1, m.height-frameRows(m.hasContext())-1) }
+// lines and the foot.
+func (m *model) bodyH() int { return max(1, m.height-frameRows-1) }
 
 func (m *model) resize() {
 	sizePanes(&m.listVP, &m.prevVP, m.listW(), m.prevW(), m.bodyH())
@@ -864,7 +860,7 @@ func (m model) toInput(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // overList reports whether a screen cell is inside the list.
 func (m *model) overList(x, y int) bool {
-	return inList(x, y, listY(m.hasContext()), m.listW(), m.bodyH())
+	return inList(x, y, listY, m.listW(), m.bodyH())
 }
 
 // handleClick moves the cursor to the row under a left click on the list. It
@@ -873,7 +869,7 @@ func (m model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 	if msg.Button != tea.MouseLeft || !m.overList(msg.X, msg.Y) {
 		return m, nil
 	}
-	i, ok := rowUnder(msg.Y, listY(m.hasContext()), m.listVP.YOffset(), m.rowCount())
+	i, ok := rowUnder(msg.Y, listY, m.listVP.YOffset(), m.rowCount())
 	if !ok || i == m.cursor() {
 		return m, nil
 	}
@@ -884,13 +880,14 @@ func (m model) handleClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 
 func (m model) View() tea.View { return popupView(m.render(), true) }
 
-// render stacks the sections in one frame (see frame.go).
+// render stacks the sections in one frame (see frame.go). In view 2 the foot
+// carries the group header next to the panel's key.
 func (m model) render() string {
 	w := m.width
-	out := frameHead(w, m.context(), devMark(), m.ti.View())
+	out := frameHead(w, devMark(), m.ti.View())
 	out = append(out, splitMain(m.listLines(), strings.Split(m.prevVP.View(), "\n"),
 		m.listW(), m.detailsW(), m.counter(), scrollPos(&m.prevVP))...)
-	out = append(out, framed(w, footLine(m.flash, m.notice, m.help, m.keys, w-4)), hline(w, "╰", "╯", "", ""))
+	out = append(out, framed(w, footLine(m.flash, m.notice, m.context(), m.help, m.keys, w-4)), hline(w, "╰", "╯", "", ""))
 	if m.panel.open {
 		keys := keyLines(m.help, m.keys, w-10)
 		out = overlay(out, panelLines(m.options(), m.panel.cursor, keys, w-4, len(out)-2), w)
@@ -898,8 +895,9 @@ func (m model) render() string {
 	return strings.Join(out, "\n")
 }
 
-// context is the frame's optional top line. View 1 needs none; view 2 says
-// which group is being browsed, which nothing else on screen does.
+// context is what the foot carries on the left. View 1 needs none, so its
+// foot is the help; view 2 says which group is being browsed, which nothing
+// else on screen does.
 func (m model) context() string {
 	if m.view == viewFiles {
 		return m.groupHeader()
@@ -932,10 +930,10 @@ func (m model) leftColumn() string {
 	return emptyList(m.loadErr, m.ti.Value(), reason, m.listW())
 }
 
-// groupHeader is the first line of view 2: label · root · count, and what is
-// marked. The count and the marks are what change, so on a line too short for
-// everything it is the root that loses its head (pathTail), as the checkout
-// does in the context line of the diff tools.
+// groupHeader is the context of view 2, at the foot: label · root · count,
+// and what is marked. The count and the marks are what change, so in a room
+// too short for everything it is the root that loses its head (pathTail), as
+// the checkout does at the foot of the diff tools.
 func (m model) groupHeader() string {
 	dot := stDim.Render(" · ")
 	tail := dot + countLabel(m.cur.count(m.allFiles), m.allFiles)
@@ -944,7 +942,7 @@ func (m model) groupHeader() string {
 	}
 	head := stHeader.Render(m.cur.label) + dot
 	root := tildePath(m.cur.root, m.home)
-	if room := m.width - 4 - ansi.StringWidth(head) - ansi.StringWidth(tail); room > 8 {
+	if room := footRoom(m.help, m.keys, m.width-4) - ansi.StringWidth(head) - ansi.StringWidth(tail); room > 8 {
 		root = pathTail(root, room)
 	}
 	return head + stDim.Render(root) + tail

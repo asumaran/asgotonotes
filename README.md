@@ -22,6 +22,24 @@ popup, same fuzzy search.
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
+Enter opens the worktree: its files, the one under the cursor previewed, and
+the group at the foot next to the panel key (`f1`), which is where the keys
+of this view live.
+
+```
+╭──────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ ❯ Search by path…                                                                                            │
+├───────────────────────────┬──────────────────────────────────────────────────────────────────────────────────┤
+│▌ plan  structured-data.md │ # Structured data for the product page                                           │
+│  untracked  HANDOFF.md    │                                                                                  │
+│  untracked  NOTES.md      │ ## Context                                                                       │
+│  tracked  docs/schema.md  │                                                                                  │
+│  gone  scratch.md         │ The product page renders no JSON-LD. Google's rich results need…                 │
+├───────────────────── 5/5 ─┴────────────────────────────────────────────────────────────────────────── 1/40 ─┤
+│ ESHOP-551 · ~/wt/shop/fix-ESHOP-551-structured-data · 5 notes                                   f1 options │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+```
+
 ## Requirements
 
 asgotonotes reads an index it does not write. A Claude Code `PostToolUse` hook
@@ -105,7 +123,7 @@ exist are skipped; if nothing is left to open, the popup stays up and says so.
 | `tab`, `space` | files view: mark or unmark the file |
 | `ctrl+o` | files view: open every listed file |
 | `ctrl+a` | switch between notes and every indexed file; the choice is remembered |
-| `ctrl+y` | copy the path under the cursor to the clipboard (the file, or the root of the worktree); the help line confirms it |
+| `ctrl+y` | copy the path under the cursor to the clipboard (the file, or the root of the worktree); the foot confirms it |
 | `↑/↓`, `ctrl+p`/`ctrl+n` | move the cursor |
 | PgDn/PgUp | move the cursor a page |
 | `alt+↑`/`alt+↓`, Home/End | top or bottom of the list |

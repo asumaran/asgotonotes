@@ -94,10 +94,13 @@ Files are split by concern:
   changed: a key, a terminal paste and the input's own `ctrl+v` all edit it,
   and the caller filters again only when it did. The same file in every tool
   of the family.
-- `helpfoot.go`: the help line at the foot, cut to the width, and the key that
-  opens the panel. `footLine` is what the foot shows: a flash first, then a
-  notice in the error color, else the help. The same file in every tool of the
-  family.
+- `helpfoot.go`: the line at the foot and the key that opens the panel.
+  `footLine` is what the foot shows: a flash first, then a notice in the error
+  color, else the help cut to the width; with a context (`info`, styled and
+  fitted to `footRoom`) the flash, the notice or the context on the left and
+  the panel's key alone on the right (`panelHint`, taken from the tool's own
+  `ShortHelp`). Here view 2 has a context, the group header. The same file in
+  every tool of the family.
 - `panel.go`: the panel `f1` opens over the frame: options to change in
   place and every key under them (`option`, `panel`, `panelLines`,
   `overlay`). The same file in every tool of the family.
@@ -111,7 +114,7 @@ Files are split by concern:
   `selPad` and the `stSel`/`stMatch` styles: how a match and the selected row
   look. The same file in every tool of the family.
 - `flash.go`: `flash`, `flashMsg`, `flashErrMsg`, `clearFlashMsg`: a word that
-  takes the help line for a moment: a confirmation in green (`flash.set`), or
+  takes the foot for a moment: a confirmation in green (`flash.set`), or
   a key that could do nothing (`nothing to copy`) in the error color
   (`flash.fail`). The same file in every tool of the family.
 - `clipboard.go`: `copyCmd`: feeds a text to the system clipboard and reports
@@ -144,7 +147,7 @@ Files are split by concern:
   that opens something.
 - `frame.go`: the single-frame layout the pickers share: `frameHead`,
   `splitMain` (list and preview) and the section rows (`mainY`, `listY`,
-  `frameRows`, each with or without the optional context line), drawn with the
+  `frameRows`), drawn with the
   primitives of `border.go`. Copied, not imported: the same file ships in
   asgoto, asgotopr, asgotoissues, asgotosession and asgotochanged (all under
   github.com/asumaran), and there is no shared library. A pull request only
@@ -183,12 +186,13 @@ Keybinding (user config): `prefix+i` / `ctrl+alt+i` → `plugin_action`
   same file in each repo): the filter input, the main section (list and preview split by a divider; its
   bottom edge carries the matches/total counter under the list and, while the
   preview overflows, its scroll position on the right),
-  and the help. A context line on top is only for what the rest of the screen
-  cannot say; a title is not context. View 1 has none; view 2 has one, the
-  group being browsed, so `listY`, `mainY` and `frameRows` take `hasContext()`
-  and the two views differ by two lines. The list starts on screen row
-  `listY`, one cell in from the left side, which is what the click-to-row math
-  uses. Errors and notices take the help line.
+  and the foot. The foot carries a context only where the rest of the screen
+  cannot say it; a title is not context. View 1 has none, so its foot is the
+  help; view 2 has one, the group being browsed, so its foot is the group
+  header and, at its right end, the panel's key alone. The two views have the
+  same geometry. The list starts on screen row `listY`, one cell in from the
+  left side, which is what the click-to-row math uses. Errors and notices take
+  the foot (the context's place in view 2).
 - **Moving through the list** is the same in every tool of the family and
   comes from `listnav.go` (the same file in each repo): arrows or
   `ctrl+p`/`ctrl+n` a row, `pgup`/`pgdn` a page, `alt+↑`/`alt+↓` or
@@ -210,16 +214,19 @@ Keybinding (user config): `prefix+i` / `ctrl+alt+i` → `plugin_action`
   move, the blink) never moves the cursor. A paste under the open panel is
   dropped. A query made only of spaces, or a bare `~` or `'`, is not a query
   (`hasTerms`): it does not filter, rank or move the cursor.
-- **Help and options**: the line at the foot shows the tool's own actions,
-  the panel's key and the quit keys (`helpfoot.go`). `f1` opens the panel (`panel.go`, the same file in
+- **Help and options**: in view 1 the line at the foot shows the tool's own
+  actions, the panel's key and the quit keys; in view 2 the group header and
+  the panel's key alone, the actions being in the panel (`helpfoot.go`).
+  `f1` opens the panel (`panel.go`, the same file in
   every tool of the family): the options on top, to change with `←`/`→` or
   `space`, and every key in columns under them, laid out by bubbles' `help`
   from `FullHelp()`. The panel is spliced over the middle of the frame, which
   keeps its size; while it is open it takes every key and the mouse, and `esc`
   closes it before it does anything else. `?` is not a help key: the filter
   has the focus, so it is text. Moving, scrolling and resizing are listed in
-  the panel only, so the help line stays short enough for a narrow popup. A
-  message takes the help line's place (`footLine`): a flash for a moment (a
+  the panel only, so the help line stays short enough for a narrow popup;
+  `ShortHelp()` lists the actions in both views, and view 2 takes the panel's
+  key from it. A message takes the foot (`footLine`): a flash for a moment (a
   confirmation in green, a key that could do nothing in the error color),
   else an error or a notice in the error color.
   This tool's options are notes only or all files: `options()` lists them as things stand and
@@ -272,17 +279,17 @@ Keybinding (user config): `prefix+i` / `ctrl+alt+i` → `plugin_action`
   the cursor stays on the row it was on (`refilter`).
 - **Views**: enter stashes the view 1 query and opens view 2 with an empty
   one; esc restores the query and puts the cursor back on the same group.
-  The group header of view 2 is the frame's context line (`groupHeader`:
-  label · root · count, then `N selected` while files are marked); view 1 has
-  none, so `listY` and `bodyH` depend on the view (`hasContext()`). The line
-  is fitted to the width: the count and the marks are what change, so it is
-  the root that loses its head (`pathTail`), not them.
+  The group header of view 2 is the foot's context (`groupHeader`: label ·
+  root · count, then `N selected` while files are marked); view 1 has none.
+  The line is fitted to the room the panel's key leaves (`footRoom`): the
+  count and the marks are what change, so it is the root that loses its head
+  (`pathTail`), not them.
 - **Keys vs. filter**: every printable key filters, so `q` quits only while
   the filter is empty, and `space` marks in view 2 instead of typing. `ctrl+a`
   is intercepted before the textinput (which would treat it as line-start).
 - **Copy**: `ctrl+y` copies the absolute path under the cursor in both views
   (the file, or the root of the worktree) with `copyCmd` (the shared
-  `clipboard.go`) and the help line flashes `copied <~ path>` (`flash.go`);
+  `clipboard.go`) and the foot flashes `copied <~ path>` (`flash.go`);
   `nothing to copy` and `copy failed: ...` flash in the error color instead
   of green (`flashErrMsg`).
   `ASGOTONOTES_CLIPBOARD` replaces the clipboard command (the tests point it
@@ -311,7 +318,7 @@ Keybinding (user config): `prefix+i` / `ctrl+alt+i` → `plugin_action`
 - **Errors**: an index that cannot be read is shown in the list in the error
   color (`loadErr` through the shared `emptyList`), as in every tool of the
   family; the popup still opens. Notices (nothing left to open, no `zed`)
-  take the help line in the error color until the next key (`footLine`).
+  take the foot in the error color until the next key (`footLine`).
 - **Never query the terminal behind bubbletea's back**: `Init` issues
   `tea.RequestBackgroundColor()` and the `tea.BackgroundColorMsg` reply picks
   the glamour style ("dark"/"light"). Frames before the reply use "dark";

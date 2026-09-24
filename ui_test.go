@@ -235,10 +235,10 @@ func TestViewsRenderFixedColumns(t *testing.T) {
 
 	m, _ = press(t, m, keyEnter)
 	view = ansi.Strip(m.View().Content)
-	// The group header of view 2 lives on the frame's context line.
-	context := strings.Split(view, "\n")[1]
-	if !strings.HasPrefix(context, "│ ESHOP-551 · ~/wt/shop/fix-ESHOP-551 · 2 notes") {
-		t.Errorf("view 2 context line = %q", context)
+	// The group header of view 2 lives at the foot, the panel key at its right end.
+	rows := strings.Split(view, "\n")
+	if foot := rows[len(rows)-2]; !strings.HasPrefix(foot, "│ ESHOP-551 · ~/wt/shop/fix-ESHOP-551 · 2 notes") || !strings.HasSuffix(strings.TrimRight(foot, " │"), "f1 options") {
+		t.Errorf("view 2 foot = %q", foot)
 	}
 	if h := strings.Count(view, "\n") + 1; h != m.height {
 		t.Errorf("view 2 is %d lines tall, want %d", h, m.height)
@@ -277,13 +277,13 @@ func TestFileLineGivesTheDateRoomToThePath(t *testing.T) {
 
 func TestClickMovesTheCursorOnly(t *testing.T) {
 	m, _ := uiFixture(t)
-	res, _ := m.Update(tea.MouseClickMsg{X: 3, Y: listY(false) + 1, Button: tea.MouseLeft}) // second row
+	res, _ := m.Update(tea.MouseClickMsg{X: 3, Y: listY + 1, Button: tea.MouseLeft}) // second row
 	got := res.(model)
 	if got.gCursor != 1 || got.view != viewGroups {
 		t.Errorf("click must select the row without entering it: cursor=%d view=%v", got.gCursor, got.view)
 	}
 	// The preview, the divider and the frame's own lines select nothing.
-	for _, c := range [][2]int{{got.listW() + 10, listY(false)}, {got.listW() + 1, listY(false)}, {0, listY(false)}, {3, mainY(false)}, {3, 1}} {
+	for _, c := range [][2]int{{got.listW() + 10, listY}, {got.listW() + 1, listY}, {0, listY}, {3, mainY}, {3, 1}} {
 		res, _ = got.Update(tea.MouseClickMsg{X: c[0], Y: c[1], Button: tea.MouseLeft})
 		if res.(model).gCursor != 1 {
 			t.Errorf("a click at %v must change nothing", c)
@@ -327,7 +327,7 @@ func TestFrameGeometry(t *testing.T) {
 		}
 		plain := strings.Split(ansi.Strip(m.View().Content), "\n")
 		if !strings.HasPrefix(plain[0], "╭") || !strings.HasPrefix(plain[len(plain)-1], "╰") ||
-			!strings.Contains(plain[mainY(m.hasContext())], "┬") || !strings.HasPrefix(plain[listY(m.hasContext())], "│▌") {
+			!strings.Contains(plain[mainY], "┬") || !strings.HasPrefix(plain[listY], "│▌") {
 			t.Errorf("%s: frame sections misplaced:\n%s", name, strings.Join(plain, "\n"))
 		}
 	}
@@ -399,7 +399,7 @@ func TestCopyKeyCopiesThePath(t *testing.T) {
 	m, root := uiFixture(t)
 	m = copies(m, root, "~/wt/shop/fix-ESHOP-551", "type filter")
 	m, _ = press(t, m, keyEnter)
-	m = copies(m, filepath.Join(root, "HANDOFF.md"), "~/wt/shop/fix-ESHOP-551/HANDOFF.md", "open in Zed")
+	m = copies(m, filepath.Join(root, "HANDOFF.md"), "~/wt/shop/fix-ESHOP-551/HANDOFF.md", "ESHOP-551 · ") // view 2: the group header comes back, next to the panel key
 
 	// nothing under the cursor
 	m, _ = press(t, m, typed("zzzz")...)
@@ -466,7 +466,7 @@ func TestResizeList(t *testing.T) {
 func TestMouseWheelFollowsThePointer(t *testing.T) {
 	m, _ := uiFixture(t)
 	wheel := func(x int, b tea.MouseButton) {
-		next, _ := m.Update(tea.MouseWheelMsg{X: x, Y: listY(m.hasContext()), Button: b})
+		next, _ := m.Update(tea.MouseWheelMsg{X: x, Y: listY, Button: b})
 		m = next.(model)
 	}
 	first := m.cursor()
@@ -640,7 +640,8 @@ func TestFilesChangeKeepsTheCursorWithAQuery(t *testing.T) {
 }
 
 // On a narrow popup the root of the group loses its head, never the count or
-// the marks, which are the parts of the context line that change.
+// the marks, which are the parts of the group header that change; the header
+// leaves the panel's key its room at the foot.
 func TestGroupHeaderFitsTheWidth(t *testing.T) {
 	m, _ := uiFixture(t)
 	m, _ = press(t, m, keyEnter)
@@ -652,8 +653,17 @@ func TestGroupHeaderFitsTheWidth(t *testing.T) {
 	res, _ := m.Update(tea.WindowSizeMsg{Width: 61, Height: 16})
 	m = res.(model)
 	h := ansi.Strip(m.groupHeader())
-	if ansi.StringWidth(h) > m.width-4 || !strings.Contains(h, "…") || !strings.HasSuffix(h, "1 selected") || !strings.Contains(h, "until/the/checkout") {
+	if ansi.StringWidth(h) > footRoom(m.help, m.keys, m.width-4) || !strings.Contains(h, "…") || !strings.HasSuffix(h, "1 selected") || !strings.Contains(h, "/checkout") {
 		t.Errorf("header at width %d: %q", m.width, h)
+	}
+	plain := strings.Split(ansi.Strip(m.View().Content), "\n")
+	if foot := strings.TrimRight(plain[len(plain)-2], " │"); !strings.HasPrefix(foot, "│ ESHOP-551 · ") || !strings.HasSuffix(foot, "f1 options") || strings.Contains(foot, "enter open") {
+		t.Errorf("the foot of view 2 is the group header and the panel key alone: %q", foot)
+	}
+	m, _ = press(t, m, keyEsc)
+	plain = strings.Split(ansi.Strip(m.View().Content), "\n")
+	if foot := plain[len(plain)-2]; !strings.Contains(foot, "enter files") || !strings.Contains(foot, "f1 options") {
+		t.Errorf("the foot of view 1 is the help: %q", foot)
 	}
 }
 

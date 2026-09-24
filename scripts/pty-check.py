@@ -176,9 +176,9 @@ class Session:
         return open(clip_log).read()
 
 # One frame (see frame.go): top border, input, main edge, list | preview,
-# bottom edge, help, border. View 2 adds a context line (the group header) and
-# its edge on top, so everything below sits two lines lower there; the main
-# edge is found by its divider joint.
+# bottom edge, foot, border. The foot is the help in view 1 and the group
+# header next to the panel key in view 2; the main edge is found by its
+# divider joint and is the same in both views.
 INNER = COLS - 2
 def listw(): return max(COLS - 3 - (COLS - 2) * 75 // 100, 10)   # the default split: list 25%, preview 75%
 def divider(f): return next(l for l in f if l.startswith("├") and "┬" in l).index("┬")
@@ -192,7 +192,7 @@ def right(f, top=1): return [l[divider(f) + 2:-1].rstrip() for l in main(f)]
 # input; devmark() says so.
 def prompt(f): return f[edge(f) - 1].strip("│ ").rstrip().removesuffix("(dev)").rstrip()
 def devmark(f): return any(l.rstrip("╮┤─ ").endswith("(dev)") for l in f[:4])
-def context(f):  return f[1].strip("│").strip() if edge(f) == 4 else ""
+def context(f):  return f[-2].strip("│ ").rstrip().removesuffix("f1 options").rstrip()
 def helpline(f): return f[-2]
 def dump(title, f):
     print("--- %s ---" % title)
@@ -224,7 +224,7 @@ check(prompt(p).endswith("?"), "? is text for the filter: %r" % prompt(p))
 f = s.send(b"\x7f", 0.6)
 check(prompt(f) == "asgotonotes ❯ Search by ticket, repo, branch…", "prompt line is clean: %r" % f[1])
 check(devmark(f), "a dev build says so on the edge over the input")
-check(f[0].startswith("╭") and f[-1].startswith("╰") and edge(f) == 2, "view 1: one frame, input right under the top border, no title line")
+check(f[0].startswith("╭") and f[-1].startswith("╰") and edge(f) == 2 and "enter files" in helpline(f), "view 1: one frame, input right under the top border, the help at the foot")
 check(b"\x1b[?1049h" in s.raw, "program entered the alt screen")
 rows = [l for l in left(f) if l.strip()]
 check(len(rows) == 2, "notes mode lists 2 groups (tool/main has only code and a memory file): %d" % len(rows))
@@ -252,7 +252,8 @@ rows = [l for l in left(f) if l.strip()]
 check(len(rows) == 2 and rows[1].startswith("▌ FED-2283"), "clearing the filter keeps the cursor on the group")
 f = s.send(UP)
 f = s.send(ENTER, 0.8); dump("view 2, notes", f)
-check(edge(f) == 4 and context(f).startswith("ESHOP-551 · ~/wt/shop/fix-ESHOP-551-structured-data · 5 notes"), "view 2 header: %r" % f[1])
+check(edge(f) == 2 and context(f).startswith("ESHOP-551 · ~/wt/shop/fix-ESHOP-551-structured-data · 5 notes") and helpline(f).rstrip("│ ").endswith("f1 options") and "enter open" not in helpline(f),
+      "view 2: the group header at the foot, the panel key alone at its right end: %r" % helpline(f))
 check(prompt(f) == "asgotonotes ❯ Search by path or status…", "view 2 starts with an empty filter and says what it searches")
 rows = [l for l in left(f, 2) if l.strip()]
 check(len(rows) == 5, "5 notes listed: %d" % len(rows))
@@ -292,7 +293,7 @@ check(b"\x1b[?1049l" in s.raw, "program left the alt screen")
 s = Session()
 s.start()
 f = s.send(DOWN + ENTER, 0.6)
-check(context(f).startswith("FED-2283 · ~/wt/fed-2283-tables · 1 note"), "second group opens: %r" % f[1])
+check(context(f).startswith("FED-2283 · ~/wt/fed-2283-tables · 1 note"), "second group opens: %r" % helpline(f))
 f = s.send(ESC); dump("back in view 1", f)
 rows = [l for l in left(f) if l.strip()]
 check(s.proc.poll() is None and rows[1].startswith("▌ FED-2283"), "esc goes back and keeps the cursor on the group")
@@ -309,12 +310,12 @@ s = Session()
 s.start()
 f = s.send(CTRL_Y); dump("view 1, ctrl+y", f)
 check(s.copied() == wt, "ctrl+y copies the absolute root of the worktree: %r" % s.copied())
-check("copied ~/wt/shop/fix-ESHOP-551-structured-data" in helpline(f), "the help line confirms the copy: %r" % helpline(f))
+check("copied ~/wt/shop/fix-ESHOP-551-structured-data" in helpline(f), "the foot confirms the copy: %r" % helpline(f))
 check(prompt(f) == "asgotonotes ❯ Search by ticket, repo, branch…", "ctrl+y leaves the filter alone: %r" % prompt(f))
 f = s.send(ENTER, 0.8)
 f = s.send(CTRL_Y); dump("view 2, ctrl+y", f)
 check(s.copied() == handoff, "ctrl+y copies the absolute path of the file: %r" % s.copied())
-check("copied ~/wt/shop/fix-ESHOP-551-structured-data/HANDOFF.md" in helpline(f), "the help line confirms the copy: %r" % helpline(f))
+check("copied ~/wt/shop/fix-ESHOP-551-structured-data/HANDOFF.md" in helpline(f) and helpline(f).rstrip("│ ").endswith("f1 options"), "the foot confirms the copy, next to the panel key: %r" % helpline(f))
 s.send(ESC, 0.6)
 s.send(b"q", 0.2)
 check(s.finish() == 0 and s.opened() == [], "q quits with an empty filter and opens nothing")
