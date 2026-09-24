@@ -8,6 +8,9 @@ package main
 // with repeated (root, file) pairs:
 //
 //	<epoch> \t <worktree root> \t <repo> \t <branch> \t <file> \t <session>
+//
+// The notes the index missed come in as records too (scan.go), so everything
+// below sees one list.
 
 import (
 	"bufio"
@@ -207,11 +210,16 @@ func isNote(path, status, home string) bool {
 	if status == statusTracked || isMemoryFile(path, home) {
 		return false
 	}
+	return hasNoteExt(path) || status == statusOutside || status == statusPlan
+}
+
+// hasNoteExt reports whether the file name alone says it is a note.
+func hasNoteExt(path string) bool {
 	switch strings.ToLower(filepath.Ext(path)) {
 	case ".md", ".markdown", ".txt":
 		return true
 	}
-	return status == statusOutside || status == statusPlan
+	return false
 }
 
 // visibleFiles returns the group's files for the current mode: notes only,

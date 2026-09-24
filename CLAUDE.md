@@ -36,6 +36,15 @@ outside git, the cwd). `repo` is empty for legacy `~/wt/<branch>` roots and
 here. Indexed files may no longer exist; they are listed as `gone`, never
 crash anything and are skipped when opening.
 
+The hook only sees Write/Edit/NotebookEdit: a note made from the shell
+(`cat > x <<EOF`, `sed -i`) never reaches the index, and the hook's backfill
+reads the same tool calls. So there is a second source, the disk, for
+Claude's own note folders only (`scan.go`): `~/.claude/harness` and
+`~/.claude/plans`. What is found there and missing from the index becomes a
+record of its own before the groups are built, so everything after that sees
+one list. Notes made from the shell inside a worktree stay out of reach; that
+is the hook's to fix.
+
 ## Stack & layout
 
 Go single module, single `package main`, static binary. TUI: Bubble Tea v2 +
@@ -51,6 +60,8 @@ Files are split by concern:
 - `index.go`: pure logic: `parseIndex`, `buildGroups` (dedup, newest first),
   `groupLabel`, `fileStatus`, the note rule `isNote` / `isMemoryFile`,
   `visibleGroups`, `stateDir()`.
+- `scan.go`: the second source: `scanDirs`, `scanNotes` (the walk, notes by
+  extension only) and `adopt` (pure: which root a found file goes to).
 - `git.go`: `trackedFiles` (the one-call-per-group lookup), `parseLsFiles`,
   `resolveStatuses` (groups in parallel).
 - `filter.go`: fuzzy rows for both views.
@@ -260,6 +271,22 @@ Keybinding (user config): `prefix+i` / `ctrl+alt+i` → `plugin_action`
   under `~/.claude/projects/<project>/memory/` (`isMemoryFile`): indexed and
   listed in all-files mode, never counted as notes. `ctrl+a` toggles notes / all files; the choice holds across
   both views and is remembered between runs (setting `files`). Groups with zero notes are hidden in notes mode.
+- **Scan**: the two folders are fixed, with no setting. Only `.md`/
+  `.markdown`/`.txt` are taken (`hasNoteExt`): outside a worktree the note
+  rule accepts any extension, and these folders hold evidence, captures and
+  scripts by the hundred. Hidden folders, `__pycache__` and `node_modules`
+  are skipped; a missing folder adds nothing. A file the index has is left to
+  the index, timestamp included. A found file is dated by its mtime and goes
+  to the root with the most index lines in its own folder (a tie: the newest
+  line), else in the nearest folder above that has any: a harness folder is
+  shared by several worktrees, so there is no single owner to read. The
+  scanned folder itself never gives an owner, because loose plans of every
+  ticket sit together in `~/.claude/plans`. A file nobody owns groups under
+  its first folder inside the scanned one (`~/.claude/plans/cfron-105-reports`,
+  labeled `CFRON-105` by the usual rule), or under the scanned folder when it
+  is loose. The records carry no repo or branch, so a group keeps the ones
+  the index gave it. `-dump` says how many files the disk added. With no
+  index there is no scan: the error is the same as before.
 - **Tracked lookup**: ONE `git --literal-pathspecs -C <root> ls-files -z --
   <files inside root>` per group, never a full `ls-files` of the tree (a
   monorepo's is huge). Literal pathspecs keep `[id].tsx` from being read
@@ -335,7 +362,7 @@ Keybinding (user config): `prefix+i` / `ctrl+alt+i` → `plugin_action`
 ## Testing
 
 Unit tests cover the pure logic with fixtures and no git: index parsing,
-grouping, labels, statuses, the note rule, ages, `ls-files` output parsing,
+grouping, the owner of a file found on disk, labels, statuses, the note rule, ages, `ls-files` output parsing,
 filtering, preview rendering, view transitions, multi-select and opening.
 
 For end-to-end verification without a TTY, `scripts/pty-check.py ./asgotonotes

@@ -3,8 +3,9 @@
 // chosen ones in Zed.
 //
 // The data comes from ~/.claude/files-index/index.tsv, appended by a Claude
-// Code PostToolUse hook on every Write/Edit. asgotonotes only reads: it never
-// edits, deletes or commits anything.
+// Code PostToolUse hook on every Write/Edit, plus the notes found on disk in
+// Claude's own folders that the hook never saw (scan.go). asgotonotes only
+// reads: it never edits, deletes or commits anything.
 package main
 
 import (
@@ -38,7 +39,7 @@ func main() {
 	}
 
 	start := time.Now()
-	groups, err := loadGroups(indexPath())
+	groups, found, err := loadGroups(indexPath())
 	loadErr := ""
 	if err != nil {
 		loadErr = err.Error()
@@ -49,7 +50,7 @@ func main() {
 			fmt.Fprintln(os.Stderr, "asgotonotes:", err)
 			os.Exit(1)
 		}
-		runDump(os.Stdout, groups, showAll(*all), *query, time.Since(start))
+		runDump(os.Stdout, groups, found, showAll(*all), *query, time.Since(start))
 		return
 	}
 
@@ -66,26 +67,31 @@ func main() {
 	}
 }
 
-// loadGroups reads the index and resolves every file's status.
-func loadGroups(path string) ([]*group, error) {
+// loadGroups reads the index, adds the notes on disk it does not have and
+// resolves every file's status. found is how many the disk added.
+func loadGroups(path string) (groups []*group, found int, err error) {
 	f, err := os.Open(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("no index at %s (files-index hook not installed, or nothing written yet)",
+			return nil, 0, fmt.Errorf("no index at %s (files-index hook not installed, or nothing written yet)",
 				tildePath(path, homeDir()))
 		}
-		return nil, err
+		return nil, 0, err
 	}
 	defer f.Close()
-	groups := buildGroups(parseIndex(f))
+	recs := parseIndex(f)
+	dirs := scanDirs(homeDir())
+	added := adopt(recs, scanNotes(dirs), dirs)
+	groups = buildGroups(append(recs, added...))
 	resolveStatuses(groups)
-	return groups, nil
+	return groups, len(added), nil
 }
 
 // runDump prints what the popup would show, without a TTY: the groups of
 // view 1 and, under each, the files of view 2. With -query it prints the
-// filtered groups and their scores instead.
-func runDump(w io.Writer, groups []*group, all bool, query string, took time.Duration) {
+// filtered groups and their scores instead. found is how many of the files
+// came from the disk and not from the index.
+func runDump(w io.Writer, groups []*group, found int, all bool, query string, took time.Duration) {
 	home, now := homeDir(), time.Now()
 	visible := visibleGroups(groups, all)
 	total := 0
@@ -96,8 +102,8 @@ func runDump(w io.Writer, groups []*group, all bool, query string, took time.Dur
 	if all {
 		files = "all"
 	}
-	fmt.Fprintf(w, "index: %s, %d roots, %d shown, %s (files: %s), loaded in %s\n",
-		tildePath(indexPath(), home), len(groups), len(visible), countLabel(total, all), files,
+	fmt.Fprintf(w, "index: %s, %d roots, %d shown, %s (files: %s), %d found on disk, loaded in %s\n",
+		tildePath(indexPath(), home), len(groups), len(visible), countLabel(total, all), files, found,
 		took.Round(time.Millisecond))
 
 	if query != "" {

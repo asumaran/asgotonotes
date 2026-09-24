@@ -673,10 +673,10 @@ func TestRunDump(t *testing.T) {
 	m, _ := uiFixture(t)
 	t.Setenv("CLAUDE_FILES_INDEX", "") // the summary names the default index, under the fixture's HOME
 	var out bytes.Buffer
-	runDump(&out, m.groups, false, "", time.Millisecond)
+	runDump(&out, m.groups, 0, false, "", time.Millisecond)
 	got := out.String()
 	lines := strings.Split(strings.TrimRight(got, "\n"), "\n")
-	if want := "index: ~/.claude/files-index/index.tsv, 3 roots, 2 shown, 3 notes (files: notes), loaded in 1ms"; lines[0] != want {
+	if want := "index: ~/.claude/files-index/index.tsv, 3 roots, 2 shown, 3 notes (files: notes), 0 found on disk, loaded in 1ms"; lines[0] != want {
 		t.Errorf("summary %q, want %q", lines[0], want)
 	}
 	// the summary, 2 groups, 3 notes: the code and the group with code only are left out
@@ -696,7 +696,7 @@ func TestRunDump(t *testing.T) {
 	}
 
 	out.Reset()
-	runDump(&out, m.groups, true, "", time.Millisecond)
+	runDump(&out, m.groups, 0, true, "", time.Millisecond)
 	got = out.String()
 	lines = strings.Split(strings.TrimRight(got, "\n"), "\n")
 	if !strings.Contains(lines[0], "3 shown, 5 files (files: all)") {
@@ -713,7 +713,7 @@ func TestRunDump(t *testing.T) {
 func TestRunDumpQuery(t *testing.T) {
 	m, _ := uiFixture(t)
 	var out bytes.Buffer
-	runDump(&out, m.groups, true, "fe", time.Millisecond)
+	runDump(&out, m.groups, 0, true, "fe", time.Millisecond)
 	got := out.String()
 	summary, matches, ok := strings.Cut(got, "query \"fe\":\n")
 	if !ok || strings.Count(summary, "\n") != 1 || !strings.Contains(summary, "(files: all)") {
@@ -749,7 +749,7 @@ func TestRunDumpQuery(t *testing.T) {
 
 	// A group the mode hides is not a match either.
 	out.Reset()
-	runDump(&out, m.groups, false, "main", time.Millisecond)
+	runDump(&out, m.groups, 0, false, "main", time.Millisecond)
 	if _, matches, _ := strings.Cut(out.String(), "query \"main\":\n"); matches != "" {
 		t.Errorf("tool/main has code only, notes mode should not match it: %q", matches)
 	}

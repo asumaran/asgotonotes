@@ -368,6 +368,19 @@ f = s.send(b"\x1b[<64;5;5M", 0.6)   # the wheel, up, over the list
 check(groups(f)[0].startswith("▌"), "the wheel over the list moves the cursor: %r" % groups(f)[:3])
 s.send(b"q", 0.2); s.finish()
 
+# ---------- notes on disk the index never saw ----------
+write(os.path.join(harness, "unindexed.md"), "# Written from the shell\n")
+write(os.path.join(harness, "capture.json"), "{}\n")
+os.makedirs(os.path.join(home, ".claude", "harness", "orphan-9"))
+write(os.path.join(home, ".claude", "harness", "orphan-9", "notes.md"), "# Nobody's\n")
+s = Session()
+f = s.start()
+check(any(g.lstrip("▌ ").startswith("ESHOP-551") and "10 files" in g for g in groups(f)),
+      "a note found next to indexed files joins their group, a capture does not: %r" % groups(f))
+check(any(g.lstrip("▌ ").startswith("ORPHAN-9") and "1 file" in g for g in groups(f)),
+      "a note in a folder nobody owns is a group of its own: %r" % groups(f))
+s.send(b"q", 0.2); s.finish()
+
 shutil.rmtree(SANDBOX, ignore_errors=True)
 print("\n%d failure(s)" % len(failures))
 sys.exit(1 if failures else 0)

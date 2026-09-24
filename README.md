@@ -54,6 +54,15 @@ The file is tab-separated and has no header or quoting. Lines can repeat and
 come in any order, and repo and branch can be empty. Without that hook the
 popup has nothing to show. `CLAUDE_FILES_INDEX` points it at another file.
 
+The hook only sees Write and Edit, so a note made from the shell
+(`cat > notes.md <<EOF`) never reaches the index. For Claude's own folders,
+`~/.claude/harness` and `~/.claude/plans`, asgotonotes also looks at the disk:
+the `.md`, `.markdown` and `.txt` files there that the index does not have are
+listed too, dated by their modification time. Such a file joins the worktree
+with the most index lines in its folder, or in the nearest folder above that
+has any; when nobody owns it, its folder is a group of its own. Notes made
+from the shell inside a worktree stay out of reach.
+
 It also needs the `zed` CLI (in Zed: `cli: install`), git, macOS or Linux and
 herdr >= 0.7.5.
 
