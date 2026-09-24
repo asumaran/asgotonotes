@@ -1,3 +1,7 @@
+## v0.15.0 (2026-09-24)
+
+* feat(index): list the notes on disk the hook never saw (5a045ed)
+
 ## v0.14.0 (2026-09-24)
 
 * feat(ui): move the context to the foot next to the panel key (f3c6575)
