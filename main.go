@@ -79,9 +79,10 @@ func loadGroups(path string) (groups []*group, found int, err error) {
 		return nil, 0, err
 	}
 	defer f.Close()
-	recs := parseIndex(f)
-	dirs := scanDirs(homeDir())
-	added := adopt(recs, scanNotes(dirs), dirs)
+	home := homeDir()
+	recs := reroot(parseIndex(f), home)
+	dirs := scanDirs(home)
+	added := reroot(adopt(recs, scanNotes(dirs), dirs), home)
 	groups = buildGroups(append(recs, added...))
 	resolveStatuses(groups)
 	return groups, len(added), nil

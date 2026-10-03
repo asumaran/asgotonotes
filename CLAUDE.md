@@ -39,11 +39,17 @@ crash anything and are skipped when opening.
 The hook only sees Write/Edit/NotebookEdit: a note made from the shell
 (`cat > x <<EOF`, `sed -i`) never reaches the index, and the hook's backfill
 reads the same tool calls. So there is a second source, the disk, for
-Claude's own note folders only (`scan.go`): `~/.claude/harness` and
-`~/.claude/plans`. What is found there and missing from the index becomes a
+Claude's own note folders only (`scan.go`): `~/.claude/harness`,
+`~/.claude/plans` and `~/.claude/project-state`. What is found there and missing from the index becomes a
 record of its own before the groups are built, so everything after that sees
 one list. Notes made from the shell inside a worktree stay out of reach; that
 is the hook's to fix.
+
+`~/.claude/project-state/<owner>/<repo>/` holds a project's state kept
+outside its repo (the `project` skill: roadmap, decisions, worker reports).
+Its files group by project, not by the worktree that wrote them: `reroot`
+moves them, indexed and found alike, to the `<owner>/<repo>` folder, and
+`groupLabel` names that group `<owner>/<repo>`.
 
 ## Stack & layout
 
@@ -61,7 +67,8 @@ Files are split by concern:
   `groupLabel`, `fileStatus`, the note rule `isNote` / `isMemoryFile`,
   `visibleGroups`, `stateDir()`.
 - `scan.go`: the second source: `scanDirs`, `scanNotes` (the walk, notes by
-  extension only) and `adopt` (pure: which root a found file goes to).
+  extension only), `adopt` (pure: which root a found file goes to),
+  `stateRoot` and `reroot` (a project's state groups by `<owner>/<repo>`).
 - `git.go`: `trackedFiles` (the one-call-per-group lookup), `parseLsFiles`,
   `resolveStatuses` (groups in parallel).
 - `filter.go`: fuzzy rows for both views.

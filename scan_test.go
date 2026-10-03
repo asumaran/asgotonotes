@@ -123,3 +123,60 @@ func TestScanNotes(t *testing.T) {
 		t.Error("no home, nothing to scan")
 	}
 }
+
+// TestProjectState groups a project's state by <owner>/<repo> along both
+// paths: an indexed file written from some worktree and a file found on disk
+// that the index never saw.
+func TestProjectState(t *testing.T) {
+	t.Setenv("HOME", testHome)
+	const (
+		state = testHome + "/.claude/project-state"
+		wt    = testHome + "/wt/shop/feat-m3-1"
+	)
+	dirs := []string{state}
+	recs := reroot([]record{
+		{ts: 100, root: wt, repo: "shop", branch: "feat/m3-1", path: state + "/acme/shop/reports/M3.1.md"},
+		{ts: 200, root: wt, repo: "shop", branch: "feat/m3-1", path: wt + "/main.go"},
+	}, testHome)
+	found := []scanned{
+		{path: state + "/acme/shop/ROADMAP.md", mtime: 300},
+		{path: state + "/acme/shop/reports/M3.2.md", mtime: 400},
+		{path: state + "/acme/other/DECISIONS.md", mtime: 50},
+		{path: state + "/loose.md", mtime: 60},
+	}
+	groups := buildGroups(append(recs, reroot(adopt(recs, found, dirs), testHome)...))
+	labels := map[string]int{}
+	for _, g := range groups {
+		labels[g.label] = len(g.files)
+	}
+	want := map[string]int{"acme/shop": 3, "acme/other": 1, "shop/feat/m3-1": 1, "~/.claude/project-state": 1}
+	for l, n := range want {
+		if labels[l] != n {
+			t.Errorf("group %q has %d files, want %d (groups %v)", l, labels[l], n, labels)
+		}
+	}
+	for _, g := range groups {
+		if g.label == "acme/shop" && (g.root != state+"/acme/shop" || g.repo != "" || g.branch != "") {
+			t.Errorf("acme/shop group = %+v, want the state folder with no repo or branch", g)
+		}
+	}
+}
+
+func TestStateRoot(t *testing.T) {
+	const state = testHome + "/.claude/project-state"
+	cases := map[string]string{
+		state + "/acme/shop/ROADMAP.md":      state + "/acme/shop",
+		state + "/acme/shop/reports/M1.md":   state + "/acme/shop",
+		state + "/acme/loose.md":             "",
+		state + "-old/acme/shop/x.md":        "",
+		testHome + "/.claude/plans/a/b/c.md": "",
+	}
+	for p, want := range cases {
+		if got := stateRoot(p, testHome); got != want {
+			t.Errorf("stateRoot(%q) = %q, want %q", p, got, want)
+		}
+	}
+	if got := stateRoot(state+"/acme/shop/x.md", ""); got != "" {
+		t.Errorf("stateRoot with no home = %q, want empty", got)
+	}
+}

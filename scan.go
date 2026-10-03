@@ -22,6 +22,7 @@ func scanDirs(home string) []string {
 	return []string{
 		filepath.Join(home, ".claude", "harness"),
 		filepath.Join(home, ".claude", "plans"),
+		filepath.Join(home, ".claude", "project-state"),
 	}
 }
 
@@ -134,4 +135,35 @@ func adopt(recs []record, found []scanned, dirs []string) []record {
 		out = append(out, record{ts: f.mtime, root: root, path: f.path})
 	}
 	return out
+}
+
+// stateRoot is the project a file of ~/.claude/project-state belongs to:
+// <home>/.claude/project-state/<owner>/<repo>, the state the project skill
+// keeps for a repo outside the repo. "" when path is not inside one.
+func stateRoot(path, home string) string {
+	if home == "" {
+		return ""
+	}
+	base := filepath.Join(home, ".claude", "project-state")
+	if !insideRoot(base, path) {
+		return ""
+	}
+	parts := strings.Split(strings.TrimPrefix(path, base+"/"), "/")
+	if len(parts) < 3 || parts[0] == "" || parts[1] == "" {
+		return ""
+	}
+	return filepath.Join(base, parts[0], parts[1])
+}
+
+// reroot moves every file of a project's state to that project's group,
+// whichever worktree the session that wrote it was in: the roadmap, the
+// decisions and the workers' reports of one repo read together. The records
+// lose their repo and branch, which named the writer's worktree.
+func reroot(recs []record, home string) []record {
+	for i, r := range recs {
+		if root := stateRoot(r.path, home); root != "" {
+			recs[i] = record{ts: r.ts, root: root, path: r.path, session: r.session}
+		}
+	}
+	return recs
 }

@@ -56,12 +56,18 @@ popup has nothing to show. `CLAUDE_FILES_INDEX` points it at another file.
 
 The hook only sees Write and Edit, so a note made from the shell
 (`cat > notes.md <<EOF`) never reaches the index. For Claude's own folders,
-`~/.claude/harness` and `~/.claude/plans`, asgotonotes also looks at the disk:
+`~/.claude/harness`, `~/.claude/plans` and `~/.claude/project-state`,
+asgotonotes also looks at the disk:
 the `.md`, `.markdown` and `.txt` files there that the index does not have are
 listed too, dated by their modification time. Such a file joins the worktree
 with the most index lines in its folder, or in the nearest folder above that
 has any; when nobody owns it, its folder is a group of its own. Notes made
 from the shell inside a worktree stay out of reach.
+
+`~/.claude/project-state/<owner>/<repo>/` is where the `project` skill keeps
+the roadmap, decisions and worker reports of a repo it must not write into.
+Every file there, indexed or found on disk, groups under `<owner>/<repo>`,
+whichever worktree wrote it.
 
 It also needs the `zed` CLI (in Zed: `cli: install`), git, macOS or Linux and
 herdr >= 0.7.5.

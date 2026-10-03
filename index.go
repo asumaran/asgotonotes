@@ -152,10 +152,13 @@ func buildGroups(recs []record) []*group {
 	return groups
 }
 
-// groupLabel names a group: the ticket id found in the branch or in the
-// root's last path segment (first match, uppercased), else repo/branch,
-// else the root with ~.
+// groupLabel names a group: <owner>/<repo> for a project's state, else the
+// ticket id found in the branch or in the root's last path segment (first
+// match, uppercased), else repo/branch, else the root with ~.
 func groupLabel(root, repo, branch, home string) string {
+	if stateRoot(root+"/x", home) == root {
+		return strings.TrimPrefix(root, filepath.Join(home, ".claude", "project-state")+"/")
+	}
 	if t := ticketFrom(branch, filepath.Base(root)); t != "" {
 		return t
 	}
