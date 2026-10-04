@@ -1,3 +1,7 @@
+## v0.16.0 (2026-10-03)
+
+* feat(index): group project state by owner and repo (1faa7dd)
+
 ## v0.15.0 (2026-09-24)
 
 * feat(index): list the notes on disk the hook never saw (5a045ed)
