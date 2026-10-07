@@ -40,16 +40,17 @@ The hook only sees Write/Edit/NotebookEdit: a note made from the shell
 (`cat > x <<EOF`, `sed -i`) never reaches the index, and the hook's backfill
 reads the same tool calls. So there is a second source, the disk, for
 Claude's own note folders only (`scan.go`): `~/.claude/harness`,
-`~/.claude/plans` and `~/.claude/project-state`. What is found there and missing from the index becomes a
+`~/.claude/plans` and `~/.claude/work`. What is found there and missing from the index becomes a
 record of its own before the groups are built, so everything after that sees
-one list. Notes made from the shell inside a worktree stay out of reach; that
+one list. A symlink to a regular note counts as the file it points to. Notes
+made from the shell inside a worktree stay out of reach; that
 is the hook's to fix.
 
-`~/.claude/project-state/<owner>/<repo>/` holds a project's state kept
-outside its repo (the `project` skill: roadmap, decisions, worker reports).
-Its files group by project, not by the worktree that wrote them: `reroot`
-moves them, indexed and found alike, to the `<owner>/<repo>` folder, and
-`groupLabel` names that group `<owner>/<repo>`.
+`~/.claude/work/<KEY>/` holds a task's state kept outside any repo (the
+`task` skill: plan, handoff, worker reports). Its files group by task, not
+by the worktree that wrote them: `reroot` moves them, indexed and found
+alike, to the `work/<KEY>` folder, and `groupLabel` names that group with
+the KEY (uppercased when it is a ticket id).
 
 ## Stack & layout
 
@@ -68,7 +69,7 @@ Files are split by concern:
   `visibleGroups`, `stateDir()`.
 - `scan.go`: the second source: `scanDirs`, `scanNotes` (the walk, notes by
   extension only), `adopt` (pure: which root a found file goes to),
-  `stateRoot` and `reroot` (a project's state groups by `<owner>/<repo>`).
+  `workRoot` and `reroot` (a task's state groups by `work/<KEY>`).
 - `git.go`: `trackedFiles` (the one-call-per-group lookup), `parseLsFiles`,
   `resolveStatuses` (groups in parallel).
 - `filter.go`: fuzzy rows for both views.

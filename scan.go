@@ -10,6 +10,7 @@ package main
 
 import (
 	"io/fs"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -22,7 +23,7 @@ func scanDirs(home string) []string {
 	return []string{
 		filepath.Join(home, ".claude", "harness"),
 		filepath.Join(home, ".claude", "plans"),
-		filepath.Join(home, ".claude", "project-state"),
+		filepath.Join(home, ".claude", "work"),
 	}
 }
 
@@ -39,8 +40,10 @@ func skipDir(name string) bool {
 
 // scanNotes walks dirs for note-shaped files. Only the extension tells a note
 // here: these folders also hold evidence, captures and scripts by the
-// hundred, and outside a worktree the note rule takes any of them. A folder
-// that is missing or cannot be read adds nothing.
+// hundred, and outside a worktree the note rule takes any of them. A symlink
+// to a regular file counts, dated by its target: a task with `home: repo`
+// keeps TASK.md in the repo and links it from `~/.claude/work/<KEY>/`. A
+// folder that is missing or cannot be read adds nothing.
 func scanNotes(dirs []string) []scanned {
 	var found []scanned
 	for _, dir := range dirs {
@@ -57,10 +60,11 @@ func scanNotes(dirs []string) []scanned {
 				}
 				return nil
 			}
-			if !d.Type().IsRegular() || !hasNoteExt(p) {
+			if !hasNoteExt(p) || !d.Type().IsRegular() && d.Type()&fs.ModeSymlink == 0 {
 				return nil
 			}
-			if info, err := d.Info(); err == nil {
+			// os.Stat follows symlinks; a broken link adds nothing.
+			if info, err := os.Stat(p); err == nil && info.Mode().IsRegular() {
 				found = append(found, scanned{path: p, mtime: info.ModTime().Unix()})
 			}
 			return nil
@@ -137,31 +141,31 @@ func adopt(recs []record, found []scanned, dirs []string) []record {
 	return out
 }
 
-// stateRoot is the project a file of ~/.claude/project-state belongs to:
-// <home>/.claude/project-state/<owner>/<repo>, the state the project skill
-// keeps for a repo outside the repo. "" when path is not inside one.
-func stateRoot(path, home string) string {
+// workRoot is the task a file of ~/.claude/work belongs to:
+// <home>/.claude/work/<KEY>, the state the task skill keeps outside any
+// repo. "" when path is not inside one (a file loose in work/ has no task).
+func workRoot(path, home string) string {
 	if home == "" {
 		return ""
 	}
-	base := filepath.Join(home, ".claude", "project-state")
+	base := filepath.Join(home, ".claude", "work")
 	if !insideRoot(base, path) {
 		return ""
 	}
-	parts := strings.Split(strings.TrimPrefix(path, base+"/"), "/")
-	if len(parts) < 3 || parts[0] == "" || parts[1] == "" {
+	key, _, nested := strings.Cut(strings.TrimPrefix(path, base+"/"), "/")
+	if !nested || key == "" {
 		return ""
 	}
-	return filepath.Join(base, parts[0], parts[1])
+	return filepath.Join(base, key)
 }
 
-// reroot moves every file of a project's state to that project's group,
-// whichever worktree the session that wrote it was in: the roadmap, the
-// decisions and the workers' reports of one repo read together. The records
-// lose their repo and branch, which named the writer's worktree.
+// reroot moves every file of a task's state to that task's group, whichever
+// worktree the session that wrote it was in: the plan, the handoff and the
+// workers' reports of one task read together. The records lose their repo
+// and branch, which named the writer's worktree.
 func reroot(recs []record, home string) []record {
 	for i, r := range recs {
-		if root := stateRoot(r.path, home); root != "" {
+		if root := workRoot(r.path, home); root != "" {
 			recs[i] = record{ts: r.ts, root: root, path: r.path, session: r.session}
 		}
 	}

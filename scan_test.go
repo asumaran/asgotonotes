@@ -86,7 +86,9 @@ func TestAdoptKeepsTheGroup(t *testing.T) {
 }
 
 // TestScanNotes walks a real tree: notes by extension only, hidden and cache
-// folders left alone, a missing folder no error.
+// folders left alone, a missing folder no error. A symlink to a regular note
+// counts (a `home: repo` task links TASK.md from its work dir); a broken one
+// does not.
 func TestScanNotes(t *testing.T) {
 	dir := t.TempDir()
 	for _, p := range []string{
@@ -101,6 +103,14 @@ func TestScanNotes(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	for link, target := range map[string]string{
+		"TASK.md":   filepath.Join(dir, "a.md"),
+		"broken.md": filepath.Join(dir, "gone.md"),
+	} {
+		if err := os.Symlink(target, filepath.Join(dir, link)); err != nil {
+			t.Fatal(err)
+		}
+	}
 	var got []string
 	for _, f := range scanNotes([]string{filepath.Join(dir, "missing"), dir}) {
 		rel, _ := filepath.Rel(dir, f.path)
@@ -110,7 +120,7 @@ func TestScanNotes(t *testing.T) {
 		}
 	}
 	sort.Strings(got)
-	want := []string{"a.md", "sub/b.TXT", "sub/deep/c.markdown"}
+	want := []string{"TASK.md", "a.md", "sub/b.TXT", "sub/deep/c.markdown"}
 	if len(got) != len(want) {
 		t.Fatalf("found %v, want %v", got, want)
 	}
@@ -124,59 +134,59 @@ func TestScanNotes(t *testing.T) {
 	}
 }
 
-// TestProjectState groups a project's state by <owner>/<repo> along both
-// paths: an indexed file written from some worktree and a file found on disk
-// that the index never saw.
-func TestProjectState(t *testing.T) {
+// TestTaskWork groups a task's state by its KEY along both paths: an indexed
+// file written from some worktree and a file found on disk that the index
+// never saw. A ticket KEY labels uppercased; a slug stays as named.
+func TestTaskWork(t *testing.T) {
 	t.Setenv("HOME", testHome)
 	const (
-		state = testHome + "/.claude/project-state"
-		wt    = testHome + "/wt/shop/feat-m3-1"
+		work = testHome + "/.claude/work"
+		wt   = testHome + "/wt/shop/feat-platform-headers"
 	)
-	dirs := []string{state}
+	dirs := []string{work}
 	recs := reroot([]record{
-		{ts: 100, root: wt, repo: "shop", branch: "feat/m3-1", path: state + "/acme/shop/reports/M3.1.md"},
-		{ts: 200, root: wt, repo: "shop", branch: "feat/m3-1", path: wt + "/main.go"},
+		{ts: 100, root: wt, repo: "shop", branch: "feat/platform-headers", path: work + "/eshop-1270/reports/F.md"},
+		{ts: 200, root: wt, repo: "shop", branch: "feat/platform-headers", path: wt + "/main.go"},
 	}, testHome)
 	found := []scanned{
-		{path: state + "/acme/shop/ROADMAP.md", mtime: 300},
-		{path: state + "/acme/shop/reports/M3.2.md", mtime: 400},
-		{path: state + "/acme/other/DECISIONS.md", mtime: 50},
-		{path: state + "/loose.md", mtime: 60},
+		{path: work + "/eshop-1270/plan.md", mtime: 300},
+		{path: work + "/eshop-1270/reports/F-r2.md", mtime: 400},
+		{path: work + "/quiz-login-rework/TASK.md", mtime: 50},
+		{path: work + "/loose.md", mtime: 60},
 	}
 	groups := buildGroups(append(recs, reroot(adopt(recs, found, dirs), testHome)...))
 	labels := map[string]int{}
 	for _, g := range groups {
 		labels[g.label] = len(g.files)
 	}
-	want := map[string]int{"acme/shop": 3, "acme/other": 1, "shop/feat/m3-1": 1, "~/.claude/project-state": 1}
+	want := map[string]int{"ESHOP-1270": 3, "quiz-login-rework": 1, "shop/feat/platform-headers": 1, "~/.claude/work": 1}
 	for l, n := range want {
 		if labels[l] != n {
 			t.Errorf("group %q has %d files, want %d (groups %v)", l, labels[l], n, labels)
 		}
 	}
 	for _, g := range groups {
-		if g.label == "acme/shop" && (g.root != state+"/acme/shop" || g.repo != "" || g.branch != "") {
-			t.Errorf("acme/shop group = %+v, want the state folder with no repo or branch", g)
+		if g.label == "ESHOP-1270" && (g.root != work+"/eshop-1270" || g.repo != "" || g.branch != "") {
+			t.Errorf("ESHOP-1270 group = %+v, want the work folder with no repo or branch", g)
 		}
 	}
 }
 
-func TestStateRoot(t *testing.T) {
-	const state = testHome + "/.claude/project-state"
+func TestWorkRoot(t *testing.T) {
+	const work = testHome + "/.claude/work"
 	cases := map[string]string{
-		state + "/acme/shop/ROADMAP.md":      state + "/acme/shop",
-		state + "/acme/shop/reports/M1.md":   state + "/acme/shop",
-		state + "/acme/loose.md":             "",
-		state + "-old/acme/shop/x.md":        "",
+		work + "/eshop-1270/TASK.md":         work + "/eshop-1270",
+		work + "/eshop-1270/reports/F.md":    work + "/eshop-1270",
+		work + "/loose.md":                   "",
+		work + "-old/eshop-1270/x.md":        "",
 		testHome + "/.claude/plans/a/b/c.md": "",
 	}
 	for p, want := range cases {
-		if got := stateRoot(p, testHome); got != want {
-			t.Errorf("stateRoot(%q) = %q, want %q", p, got, want)
+		if got := workRoot(p, testHome); got != want {
+			t.Errorf("workRoot(%q) = %q, want %q", p, got, want)
 		}
 	}
-	if got := stateRoot(state+"/acme/shop/x.md", ""); got != "" {
-		t.Errorf("stateRoot with no home = %q, want empty", got)
+	if got := workRoot(work+"/eshop-1270/x.md", ""); got != "" {
+		t.Errorf("workRoot with no home = %q, want empty", got)
 	}
 }
