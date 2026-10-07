@@ -1,3 +1,7 @@
+## v0.17.0 (2026-10-07)
+
+* feat(scan): group task state in ~/.claude/work by KEY (1f02845)
+
 ## v0.16.0 (2026-10-03)
 
 * feat(index): group project state by owner and repo (1faa7dd)
